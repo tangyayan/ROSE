@@ -133,8 +133,11 @@ public class Env {
     @Override
     public String toString() {
         Env pre = this;
+        if(pre.father == null) {
+            return this.scopeName;
+        }
         String sn = this.scopeName;
-        while(pre.father != null) {
+        while(pre.father.father != null) { // 除去GLOBAL作用域
             pre = pre.father;
             sn = pre.scopeName + "." + sn;
         }

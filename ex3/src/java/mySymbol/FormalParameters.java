@@ -16,6 +16,15 @@ public class FormalParameters implements TableSymbol {
     }
 
     /**
+     * 构造器 - 直接添加一个参数
+     * @param parameter 要添加的参数
+     */
+    public FormalParameters(Parameter parameter) {
+        this();
+        this.parameterList.add(parameter);
+    }
+
+    /**
      * 添加形式参数段
      */
     public void addFpSection(FpSection section) {
@@ -65,16 +74,33 @@ public class FormalParameters implements TableSymbol {
      */
     public boolean checkTypes(List<Type> argTypes) {
         if (argTypes.size() != parameterList.size()) {
-            System.out.println("Argument count mismatch: expected " + parameterList.size() + ", got " + argTypes.size());
+            // System.out.println("Argument count mismatch: expected " + parameterList.size() + ", got " + argTypes.size());
             return false;
         }
         for (int i = 0; i < argTypes.size(); i++) {
             if (!argTypes.get(i).equals(parameterList.get(i).getType())) {
-                System.out.println("Type mismatch for parameter " + parameterList.get(i).getName() + ": expected " + parameterList.get(i).getType() + ", got " + argTypes.get(i));
+                // System.out.println("Type mismatch for parameter " + parameterList.get(i).getName() + ": expected " + parameterList.get(i).getType() + ", got " + argTypes.get(i));
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * 检查实参类型是否与形参匹配，并返回错误信息
+     * @param argTypes
+     * @return null if matches, error message otherwise
+     */
+    public String checkTypesWithMessage(List<Type> argTypes) {
+        if (argTypes.size() != parameterList.size()) {
+            return "Parameter mismatched: expected " + parameterList.size() + ", got " + argTypes.size();
+        }
+        for (int i = 0; i < argTypes.size(); i++) {
+            if (!argTypes.get(i).equals(parameterList.get(i).getType())) {
+                return "Type mismatch for parameter " + parameterList.get(i).getName() + ": expected " + parameterList.get(i).getType() + ", got " + argTypes.get(i);
+            }
+        }
+        return null; // No mismatch
     }
 
     @Override

@@ -6,6 +6,9 @@ package mySymbol;
 public class PrimitiveType implements Type {
     private String typeName;
 
+    public static final PrimitiveType INTEGER = new PrimitiveType("INTEGER");
+    public static final PrimitiveType BOOLEAN = new PrimitiveType("BOOLEAN");
+
     /**
      * 构造器 - 创建原始类型
      * @param typeName 类型名称（INTEGER, BOOLEAN等）
