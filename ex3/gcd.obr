@@ -29,7 +29,7 @@ MODULE Sample;
         Read(n);
         i := 0;
         WHILE ~(i >= n) & n<NN DO
-            Read(a[i].id); Read(a[i].val);
+            Read(a[i].id>2); Read(a[i].val);
             i := i + 1
         END;
         Read(x);

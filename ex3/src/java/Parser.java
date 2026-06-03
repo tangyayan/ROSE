@@ -598,18 +598,14 @@ public class Parser extends java_cup.runtime.lr_parser {
         super(s);
         mySymbol.Env.reset();
 
-        mySymbol.Type intType = new mySymbol.PrimitiveType("INTEGER");
-        mySymbol.Type boolType = new mySymbol.PrimitiveType("BOOLEAN");
-
-        mySymbol.Env.addSymbol_s("INTEGER", intType);
-        mySymbol.Env.addSymbol_s("BOOLEAN", boolType);
-        // mySymbol.Env.addSymbol_s("Write", new mySymbol.FormalParameters(Arrays.asList(
-        //     new mySymbol.Parameter("value", intType)
-        // )));
-        // mySymbol.Env.addSymbol_s("Read", new mySymbol.FormalParameters(Arrays.asList(
-        //     new mySymbol.Parameter("value", intType)
-        // )));
-        // mySymbol.Env.addSymbol_s("WriteLN", new mySymbol.FormalParameters(Arrays.asList()));
+        mySymbol.Env.addSymbol_s("INTEGER", mySymbol.PrimitiveType.INTEGER);
+        mySymbol.Env.addSymbol_s("BOOLEAN", mySymbol.PrimitiveType.BOOLEAN);
+        
+        mySymbol.Parameter readParam = new mySymbol.Parameter("value", mySymbol.PrimitiveType.INTEGER, true);
+        mySymbol.Parameter writeParam = new mySymbol.Parameter("value", mySymbol.PrimitiveType.INTEGER, false);
+        mySymbol.Env.addSymbol_s("WRITE", new mySymbol.FormalParameters(readParam));
+        mySymbol.Env.addSymbol_s("READ", new mySymbol.FormalParameters(writeParam));
+        mySymbol.Env.addSymbol_s("WRITELN", new mySymbol.FormalParameters());
     }
 
     // 最终建图
@@ -1400,7 +1396,10 @@ class CUP$Parser$actions {
 		int apright = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		List<mySymbol.Expression> ap = (List<mySymbol.Expression>)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
 		 
-        String callSiteId = "cs_" + (parser.callSiteCounter++);
+        // 获取实参类型列表
+        List<mySymbol.Type> paramTypes = new ArrayList<>();
+        if (ap != null)
+            for (mySymbol.Expression arg : ap) paramTypes.add(arg.getType());
 
         // 生成调用代码字符串，如 foo(x, y+1, 2)
         StringBuilder siteCode = new StringBuilder(i + "(");
@@ -1412,16 +1411,39 @@ class CUP$Parser$actions {
         }
         siteCode.append(");");
 
-        // System.out.println("Procedure call: " + siteCode.toString());
+        mySymbol.Env calleeEnv = mySymbol.Env.getCurrentEnv();
+        String EnvName = null;
+        while(calleeEnv != null) {
+            mySymbol.TableSymbol sym = calleeEnv.lookupLocal(i);
+            EnvName = calleeEnv.toString();
+            if(sym != null && sym.getKind().equals("FORMALPARAMETERS")) {
+                mySymbol.FormalParameters fp = (mySymbol.FormalParameters) sym;
+                if(!fp.checkTypes(paramTypes)) {
+                    report_error(
+                        "Type mismatch in call to " + i + " at call site " + siteCode + " at line " + ileft + ", column " + iright,
+                        null);
+                }
+                break;
+            }
+            calleeEnv = calleeEnv.getFather();
+        }
         
-        String CallSiteName = mySymbol.Env.getCurrentEnv().toString() + "()";
-        parser.graph.addCallSite(callSiteId, CallSiteName, siteCode.toString());
-        List<mySymbol.Type> paramTypes = new ArrayList<>();
-        if (ap != null)
-            for (mySymbol.Expression arg : ap) paramTypes.add(arg.getType());
-        parser.pendingEdges.add(new String[]{ callSiteId, i});
-        parser.pendingEnvs.add(mySymbol.Env.getCurrentEnv());
-        parser.pendingTypes.add(paramTypes);
+        // 内置过程不加入调用图
+        if (!(i.equals("READ") || i.equals("WRITE") || i.equals("WRITELN"))) {
+            String callSiteId = "cs_" + (parser.callSiteCounter++);
+            
+            String CallSiteName = mySymbol.Env.getCurrentEnv().toString() + "()";
+            parser.graph.addCallSite(callSiteId, CallSiteName, siteCode.toString());
+            
+            if(calleeEnv==null) {
+                parser.pendingEdges.add(new String[]{ callSiteId, i});
+                parser.pendingEnvs.add(mySymbol.Env.getCurrentEnv());
+                parser.pendingTypes.add(paramTypes);
+            }
+            else {
+                parser.graph.addEdge(callSiteId, EnvName + "." + i);
+            }
+        }
     
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("procedure_call",31, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
