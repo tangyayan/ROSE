@@ -67,5 +67,5 @@ MODULE Sample;
             Gcd(b, y, ans);
             Write(ans)
         END
-    END Main
+    END Main;
 END Sample.

@@ -65,5 +65,5 @@ MODULE Sample;
             Gcd(x, y);
             Write(ans)
         END
-    END Main
+    END Main;
 END Sample.
