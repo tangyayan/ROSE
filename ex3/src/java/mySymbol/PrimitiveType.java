@@ -8,6 +8,7 @@ public class PrimitiveType implements Type {
 
     public static final PrimitiveType INTEGER = new PrimitiveType("INTEGER");
     public static final PrimitiveType BOOLEAN = new PrimitiveType("BOOLEAN");
+    public static final PrimitiveType ERROR = new PrimitiveType("ERROR");
 
     /**
      * 构造器 - 创建原始类型
