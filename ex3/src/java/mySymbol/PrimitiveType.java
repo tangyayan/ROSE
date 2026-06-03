@@ -18,6 +18,10 @@ public class PrimitiveType implements Type {
         this.typeName = typeName;
     }
 
+    public Type getTargetType() {
+        return this;
+    }
+
     @Override
     public String getTypeName() {
         return typeName;

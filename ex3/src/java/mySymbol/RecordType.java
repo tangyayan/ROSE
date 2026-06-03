@@ -18,6 +18,10 @@ public class RecordType implements Type {
         this.typeName = "RECORD";
     }
 
+    public Type getTargetType() {
+        return this;
+    }
+
     /**
      * 添加字段
      */

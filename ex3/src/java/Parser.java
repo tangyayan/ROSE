@@ -578,7 +578,11 @@ public class Parser extends java_cup.runtime.lr_parser {
     public List<String[]> pendingEdges = new ArrayList<>();
     public List<mySymbol.Env> pendingEnvs = new ArrayList<>();
     public List<List<mySymbol.Type>> pendingTypes = new ArrayList<>();
-    public int callSiteCounter = 0, calleeCounter = 0;
+    public int callSiteCounter = 0;
+
+    public mySymbol.Type intType = mySymbol.PrimitiveType.INTEGER,
+                boolType = mySymbol.PrimitiveType.BOOLEAN,
+                errorType = mySymbol.PrimitiveType.ERROR;
 
     public void report_error(String message, Object info) {
         StringBuilder m = new StringBuilder("Error ");
@@ -598,11 +602,11 @@ public class Parser extends java_cup.runtime.lr_parser {
         super(s);
         mySymbol.Env.reset();
 
-        mySymbol.Env.addSymbol_s("INTEGER", mySymbol.PrimitiveType.INTEGER);
-        mySymbol.Env.addSymbol_s("BOOLEAN", mySymbol.PrimitiveType.BOOLEAN);
+        mySymbol.Env.addSymbol_s("INTEGER", intType);
+        mySymbol.Env.addSymbol_s("BOOLEAN", boolType);
         
-        mySymbol.Parameter readParam = new mySymbol.Parameter("value", mySymbol.PrimitiveType.INTEGER, true);
-        mySymbol.Parameter writeParam = new mySymbol.Parameter("value", mySymbol.PrimitiveType.INTEGER, false);
+        mySymbol.Parameter readParam = new mySymbol.Parameter("value", intType, true);
+        mySymbol.Parameter writeParam = new mySymbol.Parameter("value", intType, false);
         mySymbol.Env.addSymbol_s("WRITE", new mySymbol.FormalParameters(readParam));
         mySymbol.Env.addSymbol_s("READ", new mySymbol.FormalParameters(writeParam));
         mySymbol.Env.addSymbol_s("WRITELN", new mySymbol.FormalParameters());
@@ -624,8 +628,8 @@ public class Parser extends java_cup.runtime.lr_parser {
                     //     report_error("Type mismatch in call to " + edge[1] + " at call site " + edge[0], null);
                     // }
                     String errorString = fp.checkTypesWithMessage(calleeParamTypes);
-                    if(errorString==null) {
-                        report_error("Call site " + edge[3] + " calls " + edge[1] + ": " + errorString, null);
+                    if(errorString!=null) {
+                        report_error("Call site " + edge[2] + " calls " + edge[1] + ": " + errorString, null);
                     }
                     graph.addEdge(edge[0], EnvName + "." + edge[1]);
                     break;
@@ -1114,12 +1118,12 @@ class CUP$Parser$actions {
         mySymbol.TableSymbol sym = currentEnv.lookup(i);
         if (sym == null) {
             report_error("Undefined type: " + i, null);
-            RESULT = mySymbol.PrimitiveType.ERROR;
+            RESULT = errorType;
         } else if (sym instanceof mySymbol.Type) {
             RESULT = (mySymbol.Type) sym;
         } else {
             report_error("Identifier " + i + " is not a type", null);
-            RESULT = mySymbol.PrimitiveType.ERROR;
+            RESULT = errorType;
         }
     
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("type",12, ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
@@ -1545,7 +1549,7 @@ class CUP$Parser$actions {
         mySymbol.Type currentType;
         if(now_sym == null) {
             report_error("Undefined identifier: " + id + ",at line " + idleft + ",column" + idright, null);
-            currentType = mySymbol.PrimitiveType.ERROR;
+            currentType = errorType;
         } else if (now_sym.getKind().equals("VAR")) {
             mySymbol.Var varSym = (mySymbol.Var) now_sym;
             currentType = varSym.getType();
@@ -1555,10 +1559,10 @@ class CUP$Parser$actions {
         } 
         else { // 函数调用不应该出现在表达式中
             report_error("Identifier " + id + " is not a variable or constant", null);
-            currentType = mySymbol.PrimitiveType.ERROR;
+            currentType = errorType;
         } 
 
-        if(!currentType.getTypeName().equals("ERROR")) {
+        if(!currentType.getTargetType().equals(errorType)) {
             if(!s.isEmpty()) {
             for(mySymbol.Selector.SelectorNode node : s.getNodes()){
                 if(currentType instanceof mySymbol.AliasType) {
@@ -1567,7 +1571,7 @@ class CUP$Parser$actions {
                 if(node.isFieldSelector()){
                     if(!(currentType instanceof mySymbol.RecordType)){
                         report_error("Field selector applied to non-record type", null);
-                        currentType = mySymbol.PrimitiveType.ERROR;
+                        currentType = errorType;
                         break;
                     }
                     mySymbol.RecordType record = (mySymbol.RecordType)currentType;
@@ -1575,7 +1579,7 @@ class CUP$Parser$actions {
                     mySymbol.Parameter field = record.getField(fieldName);
                     if(field == null){
                         report_error("Undefined field " + fieldName,null);
-                        currentType = mySymbol.PrimitiveType.ERROR;
+                        currentType = errorType;
                         break;
                     }
                     currentType = field.getType();
@@ -1583,14 +1587,17 @@ class CUP$Parser$actions {
                 else { // index selector
                     if(!(currentType instanceof mySymbol.ArrayType)){
                         report_error("Index selector applied to non-array type", null);
-                        currentType = mySymbol.PrimitiveType.ERROR;
+                        currentType = errorType;
                         break;
                     }
                     currentType = ((mySymbol.ArrayType)currentType).getElementType();
                 }
             }
             }
-            if(!currentType.equals(e.getType())) throw new TypeMismatchedException(idleft, idright);
+            if(!currentType.getTargetType().equals(e.getType().getTargetType()))
+            {
+                report_error("Type mismatch in assignment: cannot assign " + e.getType().getTypeName() + " to " + currentType.getTypeName(), null);
+            }
         }
     
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("assignment",30, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-3)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
@@ -1601,16 +1608,10 @@ class CUP$Parser$actions {
           case 68: // expression ::= INTEGER INTEGER 
             {
               mySymbol.Expression RESULT =null;
-		int i1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
-		int i1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
-		Integer i1 = (Integer)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		int i2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
-		int i2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
-		Integer i2 = (Integer)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing operator between integers at line " + i1left, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+		int ileft = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
+		int iright = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
+		Integer i = (Integer)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
+			if (true)	throw new MissingOperatorException(ileft, iright);	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1622,10 +1623,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing left operand for '=' at line " + e1left, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1637,10 +1635,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for '=' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1656,15 +1651,11 @@ class CUP$Parser$actions {
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
 		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Type mismatch in '=': expected INTEGER but got " 
-                + e1.getType().getTypeName() + " = " + e2.getType().getTypeName() 
-                + " at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " = " + e2.getCode(), mySymbol.PrimitiveType.BOOLEAN);
-        }
-      
+            if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " = " + e2.getCode(), boolType);
+            }
+            else throw new TypeMismatchedException();
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1676,10 +1667,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing left operand for '#' at line " + e1left, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1691,10 +1679,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for '#' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1709,14 +1694,12 @@ class CUP$Parser$actions {
 		int e2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Type mismatch in '#': expected INTEGER at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " != " + e2.getCode(), mySymbol.PrimitiveType.BOOLEAN);
-        }
-      
+		
+            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " != " + e2.getCode(), boolType);
+            }
+            else throw new TypeMismatchedException();
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1728,10 +1711,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing left operand for '<=' at line " + e1left, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1743,10 +1723,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for '<=' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1761,14 +1738,12 @@ class CUP$Parser$actions {
 		int e2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Type mismatch in '<=': expected INTEGER at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " <= " + e2.getCode(), mySymbol.PrimitiveType.BOOLEAN);
-        }
-      
+		
+            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " <= " + e2.getCode(), boolType);
+            }
+            else throw new TypeMismatchedException();
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1780,10 +1755,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing left operand for '<' at line " + e1left, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1795,10 +1767,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for '<' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1813,14 +1782,13 @@ class CUP$Parser$actions {
 		int e2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Type mismatch in '<': expected INTEGER at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " < " + e2.getCode(), mySymbol.PrimitiveType.BOOLEAN);
-        }
-      
+		
+            // System.out.println("LT operation: " + e1.getCode() + " < " + e2.getCode());
+            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " < " + e2.getCode(), boolType);
+            }
+            else throw new TypeMismatchedException();
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1832,10 +1800,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing left operand for '>=' at line " + e1left, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1847,10 +1812,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for '>=' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1865,14 +1827,12 @@ class CUP$Parser$actions {
 		int e2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Type mismatch in '>=': expected INTEGER at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " >= " + e2.getCode(), mySymbol.PrimitiveType.BOOLEAN);
-        }
-      
+		
+            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " >= " + e2.getCode(), boolType);
+            }
+            else throw new TypeMismatchedException(e1left, e1right);
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1884,10 +1844,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing left operand for '>' at line " + e1left, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1899,10 +1856,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for '>' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1917,14 +1871,13 @@ class CUP$Parser$actions {
 		int e2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Type mismatch in '>': expected INTEGER at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " > " + e2.getCode(), mySymbol.PrimitiveType.BOOLEAN);
-        }
-      
+		
+            // System.out.println("GT operation: " + e1.getCode() + " > " + e2.getCode());
+            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " > " + e2.getCode(), boolType);
+            }
+            else throw new TypeMismatchedException(e1left, e1right);
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1936,15 +1889,12 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Unary '+' requires INTEGER operand, got " + e1.getType().getTypeName() 
-                + " at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression("+" + e1.getCode(), mySymbol.PrimitiveType.INTEGER);
-        }
-      
+			
+            if (e1.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression("+" + e1.getCode(), intType);
+            }
+            else throw new TypeMismatchedException();
+        
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1956,10 +1906,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for '+' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1974,14 +1921,12 @@ class CUP$Parser$actions {
 		int e2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Type mismatch in '+': expected INTEGER at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " + " + e2.getCode(), mySymbol.PrimitiveType.INTEGER);
-        }
-      
+		
+            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " + " + e2.getCode(), intType);
+            }
+            else throw new TypeMismatchedException();
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -1993,15 +1938,12 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Unary '-' requires INTEGER operand, got " + e1.getType().getTypeName() 
-                + " at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression("-" + e1.getCode(), mySymbol.PrimitiveType.INTEGER);
-        }
-      
+			
+            if (e1.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression("-" + e1.getCode(), intType);
+            }
+            else throw new TypeMismatchedException();
+        
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2013,10 +1955,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for '-' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2031,14 +1970,12 @@ class CUP$Parser$actions {
 		int e2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Type mismatch in '-': expected INTEGER at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " - " + e2.getCode(), mySymbol.PrimitiveType.INTEGER);
-        }
-      
+		
+            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " - " + e2.getCode(), intType);
+            }
+            else throw new TypeMismatchedException();
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2050,10 +1987,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing left operand for '*' at line " + e1left, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2065,10 +1999,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for '*' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2083,14 +2014,12 @@ class CUP$Parser$actions {
 		int e2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Type mismatch in '*': expected INTEGER at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " * " + e2.getCode(), mySymbol.PrimitiveType.INTEGER);
-        }
-      
+		
+            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " * " + e2.getCode(), intType);
+            }
+            else throw new TypeMismatchedException();
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2102,10 +2031,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing left operand for 'DIV' at line " + e1left, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2117,10 +2043,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for 'DIV' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2135,14 +2058,12 @@ class CUP$Parser$actions {
 		int e2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Type mismatch in 'DIV': expected INTEGER at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " / " + e2.getCode(), mySymbol.PrimitiveType.INTEGER);
-        }
-      
+		
+            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " / " + e2.getCode(), intType);
+            }
+            else throw new TypeMismatchedException();
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2154,10 +2075,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing left operand for 'MOD' at line " + e1left, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2169,10 +2087,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for 'MOD' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2187,14 +2102,12 @@ class CUP$Parser$actions {
 		int e2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.INTEGER || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
-            parser.report_error("Type mismatch in 'MOD': expected INTEGER at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " % " + e2.getCode(), mySymbol.PrimitiveType.INTEGER);
-        }
-      
+		
+            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " % " + e2.getCode(), intType);
+            }
+            else throw new TypeMismatchedException();
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2206,10 +2119,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing left operand for 'AND' at line " + e1left, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2221,10 +2131,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for 'AND' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2239,14 +2146,13 @@ class CUP$Parser$actions {
 		int e2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.BOOLEAN || e2.getType() != mySymbol.PrimitiveType.BOOLEAN) {
-            parser.report_error("Type mismatch in 'AND': expected BOOLEAN at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " AND " + e2.getCode(), mySymbol.PrimitiveType.BOOLEAN);
-        }
-      
+		
+            // System.out.println("AND operation: " + e1.getCode() + " AND " + e2.getCode());
+			if(e1.getType().getTargetType().equals(boolType) && e2.getType().getTargetType().equals(boolType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " AND " + e2.getCode(), boolType);
+            }
+            else throw new TypeMismatchedException(e1left, e1right);
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2258,10 +2164,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing left operand for 'OR' at line " + e1left, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2273,10 +2176,7 @@ class CUP$Parser$actions {
 		int e1left = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Missing right operand for 'OR' at line " + e1right, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2291,14 +2191,12 @@ class CUP$Parser$actions {
 		int e2left = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e1.getType() != mySymbol.PrimitiveType.BOOLEAN || e2.getType() != mySymbol.PrimitiveType.BOOLEAN) {
-            parser.report_error("Type mismatch in 'OR': expected BOOLEAN at line " + e1left, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression(e1.getCode() + " OR " + e2.getCode(), mySymbol.PrimitiveType.BOOLEAN);
-        }
-      
+		
+			if(e1.getType().getTargetType().equals(boolType) && e2.getType().getTargetType().equals(boolType)) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " OR " + e2.getCode(), boolType);
+            }
+            else throw new TypeMismatchedException();
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2307,13 +2205,7 @@ class CUP$Parser$actions {
           case 108: // expression ::= NOT 
             {
               mySymbol.Expression RESULT =null;
-		int nleft = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
-		int nright = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
-		Object n = (Object)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        parser.report_error("Missing operand for 'NOT' at line " + nleft, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+			if (true)	throw new MissingOperandException();	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2325,15 +2217,12 @@ class CUP$Parser$actions {
 		int eleft = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int eright = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        if(e.getType() != mySymbol.PrimitiveType.BOOLEAN) {
-            parser.report_error("Type mismatch in 'NOT': expected BOOLEAN, got " + e.getType().getTypeName() 
-                + " at line " + eleft, null);
-            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-        } else {
-            RESULT = new mySymbol.Expression("NOT " + e.getCode(), mySymbol.PrimitiveType.BOOLEAN);
-        }
-      
+		
+			if(e.getType().getTypeName().equals("BOOLEAN")) {
+                RESULT = new mySymbol.Expression("NOT " + e.getCode(), boolType);
+            }
+            else throw new TypeMismatchedException();
+		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2345,9 +2234,7 @@ class CUP$Parser$actions {
 		int eleft = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
 		int eright = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        RESULT = e;
-      
+			RESULT = e;	
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2356,13 +2243,7 @@ class CUP$Parser$actions {
           case 111: // expression ::= LPAREN RPAREN 
             {
               mySymbol.Expression RESULT =null;
-		int lleft = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
-		int lright = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
-		Object l = (Object)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
-		 
-        parser.report_error("Empty parentheses are not allowed at line " + lleft, null);
-        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
-      
+				if (true)	throw new MissingOperandException();		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
           return CUP$Parser$result;
@@ -2383,7 +2264,7 @@ class CUP$Parser$actions {
             mySymbol.Type currentType;
             if(now_sym == null) {
                 report_error("Undefined identifier: " + id + ",at line " + idleft + ",column" + idright, null);
-                currentType = mySymbol.PrimitiveType.ERROR;
+                currentType = errorType;
             } else if (now_sym.getKind().equals("VAR")) {
                 mySymbol.Var varSym = (mySymbol.Var) now_sym;
                 currentType = varSym.getType();
@@ -2393,10 +2274,10 @@ class CUP$Parser$actions {
             } 
             else { // 函数调用不应该出现在表达式中
                 report_error("Identifier " + id + " is not a variable or constant", null);
-                currentType = mySymbol.PrimitiveType.ERROR;
+                currentType = errorType;
             } 
 
-            if(!currentType.getTypeName().equals("ERROR")) {
+            if(currentType!=errorType) {
                 String code = id;
                 if(!s.isEmpty()) {
                     for(mySymbol.Selector.SelectorNode node : s.getNodes()){
@@ -2406,7 +2287,7 @@ class CUP$Parser$actions {
                         if(node.isFieldSelector()){
                             if(!(currentType instanceof mySymbol.RecordType)){
                                 report_error("Field selector applied to non-record type", null);
-                                currentType = mySymbol.PrimitiveType.ERROR;
+                                currentType = errorType;
                                 break;
                             }
                             mySymbol.RecordType record = (mySymbol.RecordType)currentType;
@@ -2414,7 +2295,7 @@ class CUP$Parser$actions {
                             mySymbol.Parameter field = record.getField(fieldName);
                             if(field == null){
                                 report_error("Undefined field " + fieldName,null);
-                                currentType = mySymbol.PrimitiveType.ERROR;
+                                currentType = errorType;
                                 break;
                             }
                             currentType = field.getType();
@@ -2422,7 +2303,7 @@ class CUP$Parser$actions {
                         else { // index selector
                             if(!(currentType instanceof mySymbol.ArrayType)){
                                 report_error("Index selector applied to non-array type", null);
-                                currentType = mySymbol.PrimitiveType.ERROR;
+                                currentType = errorType;
                                 break;
                             }
                             currentType = ((mySymbol.ArrayType)currentType).getElementType();
@@ -2450,7 +2331,7 @@ class CUP$Parser$actions {
 		int iright = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		Integer i = (Integer)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
 		
-			RESULT = new mySymbol.Expression(i.toString(), mySymbol.PrimitiveType.INTEGER);
+			RESULT = new mySymbol.Expression(i.toString(), intType);
 		
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }
@@ -2485,7 +2366,7 @@ class CUP$Parser$actions {
 		int eright = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
 		mySymbol.Expression e = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
 		
-        if(!e.getType().getTypeName().equals("INTEGER")) {
+        if(!e.getType().getTargetType().equals(intType)) {
             throw new TypeMismatchedException(eleft, eright);
         }
         RESULT = s;

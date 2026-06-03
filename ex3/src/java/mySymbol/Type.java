@@ -15,6 +15,12 @@ public interface Type extends TableSymbol {
     boolean isPrimitiveType();
 
     /**
+     * 获取目标类型 - 对于别名类型，返回其指向的实际类型；对于非别名类型，返回自身
+     * @return 目标类型
+     */
+    Type getTargetType();
+
+    /**
      * 获取符号类型
      */
     @Override

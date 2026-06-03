@@ -27,6 +27,10 @@ public class ArrayType implements Type {
         return elementType;
     }
 
+    public Type getTargetType() {
+        return this;
+    }
+
     @Override
     public boolean isPrimitiveType() {
         return false;
