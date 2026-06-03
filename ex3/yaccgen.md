@@ -1,0 +1,185 @@
+```
+java -jar javacup\java-cup-11b.jar -destdir src\java -parser Parser -symbols Symbol parser.cup
+
+java -jar javacup\java-cup-11b.jar -destdir src\java -parser Parser -symbols Symbol simple.cup
+```
+
+![1780284262173](image/yaccgen/1780284262173.png)
+
+测试正确
+
+注意由于代码比较陈旧，因此使用了 `new Integer(i_val)` 和 `DefaultSymbolFactory()` 等弃用的函数，需要修改
+
+0.11b支持通过优先级来解决移入归约冲突
+
+```cpp
+precedence left PLUS, MINUS;
+precedence left TIMES;
+precedence left UMINUS;
+
+MINUS expr:e {: RESULT = -e;          :}
+  	     %prec UMINUS
+```
+
+对于-2*3，有(-2)\*3或者-(2\*3)，指定此时minus的优先级为 UMINUS
+
+CUP 也为每个产生式分配优先级。该优先级等于该产生式中最后一个终结符的优先级。
+
+%cup能够省去init和scan模块
+
+如果用了 `-symbol` 需要使用
+
+```
+  <<EOF>>  { return mysym.EOF; }
+```
+
+修改
+
+词法分析时以下终结符：
+
+保留字（名字+左位置（行+列））、关键字表（identifier，左位置，值）
+
+| 保留字                                                                                                                        | 关键字                                                      |
+| ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| MODULE、PROCEDURE、BEGIN、END、<br />CONTST、TYPE、VAR、ARRAY、<br />OF、RECORD、WHILE、DO、<br />IF、THEN、ELSIF、THEN、ELSE | TYPE：INTEGER、BOOLEAN<br />PROCEDURE：read、write、writeln |
+
+运算符表（名字+左位置（行+列））
+
+| 符号           | 具体内容      |
+| -------------- | ------------- |
+| 赋值运算符     | :=            |
+| 关系运算符     | = # < <= > >= |
+| 一元算术运算符 | + -           |
+| 二元算术运算符 | + - * DIV MOD |
+| 逻辑运算       | & OR ~        |
+
+其他
+
+| 符号          | 具体内容                                               |
+| ------------- | ------------------------------------------------------ |
+| 分割符/选择符 | ; . ( ) , [ ]                                         |
+| 定义符        | = :                                                    |
+| 注释          | (* *)                                                  |
+| 标识符        | letter[digit\|letter]*（identifier，左位置，string值） |
+| 整数数字      | digit+（Integer，左位置，右位置，int值）               |
+
+需要一个符号表：
+
+```cpp
+struct env{
+   map<string, object> table;
+   env *father;
+};
+对于id，他有procedure,module,var,const,type几个类别，
+var又有int,bool,array
+object{int type;int kind;}
+```
+
+错误恢复，使用 `error SEMI` 进行错误恢复，使用 `report_error(String message, Object info)` 进行错误报告
+
+```mermaid
+classDiagram
+  class Env{
+    -HashTable~String,Symbol~ table
+    -Env_point father
+    -String scopeName
+    +static EnterEnv(String)
+    +static ExitEnv()
+    +addTable()
+  }
+
+  class Symbol{
+    <<interface>>
+    +getKind()
+  }
+
+  class FormalParameters {
+    -List~parameter~ parameterList
+    +addFpSection()
+    +getSize()
+  }
+
+  class Var{
+    +Type type
+  }
+  class Const{
+    +Type type
+  }
+
+  class FpSection {
+    -List~String~ identList
+    -Type type
+    -boolean isVar
+    +getIdentList() List~String~
+    +getType() Type
+    +isVar() boolean
+  }
+
+  class parameter {
+    -String id
+    -Type type
+    -boolean isVar
+    +getIdent() String
+    +getType() Type
+    +isVar() boolean
+  }
+
+  class Type {
+    <<interface>>
+    +getTypeName() String
+    +isPrimitiveType() Bool
+  }
+
+  class PrimitiveType {
+    -String typeName 
+    +getTypeName() String
+  }
+
+  class AliasType  {
+    -String typeName
+    +Type target
+    +getTypeName() String
+  }
+
+  class ArrayType {
+    -Type elementType
+    -int length
+    +getTypeName() String
+    +getElementType() Type
+  }
+
+  class RecordType {
+    -List~parameter~ fields
+    +getTypeName() String
+    +getFields() List~FpSection~
+  }
+
+  Symbol <|.. FormalParameters : implements
+  Symbol <|.. Type : implements
+  Symbol <|.. Var : implements
+  Symbol <|.. Const : implements
+  FormalParameters "1" o-- "1..*" FpSection : from
+  FormalParameters "1" o-- "1..*" parameter : contains
+  FpSection "1" --> "1" Type : has
+  Type <|.. AliasType  : implements
+  Type <|.. ArrayType : implements
+  Type <|.. RecordType : implements
+  Type <|.. PrimitiveType : implements
+  ArrayType "1" --> "1" Type : elementType
+  AliasType "1" --> "1" Type : elementType
+```
+
+可以在产生式中间加入动作，LALR(1)会将其变为一个产生式退出空串，通过e1left来获得位置
+
+设计时候发现有很多隐藏问题比如，这里可以看到前面没有声明的type后面不能使用（就没有循环定义了）
+
+```cpp
+typedef in_p Int_p ;
+typedef int in_p;
+```
+
+生成symbol类不能是symbol，不然会和jar包里面冲突
+
+比如一个单词不同类型能否被设置？这里简单的一个单词只能定义一次
+
+当type是一个没定义的类型

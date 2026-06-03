@@ -1,0 +1,763 @@
+import java_cup.runtime.*;
+import callgraph.*;
+import java.util.*;
+import exceptions.*;
+
+parser code  {: 
+    public CallGraph graph = new CallGraph();
+    
+    // 延迟边：{callSiteId, calleeName} {Env} {calleeType}
+    // calleName global.procedure name 即为id
+    public List<String[]> pendingEdges = new ArrayList<>();
+    public List<mySymbol.Env> pendingEnvs = new ArrayList<>();
+    public List<List<mySymbol.Type>> pendingTypes = new ArrayList<>();
+    public int callSiteCounter = 0, calleeCounter = 0;
+
+    public void report_error(String message, Object info) {
+        StringBuilder m = new StringBuilder("Error ");
+        if (info instanceof java_cup.runtime.Symbol) 
+            m.append( "("+info.toString()+")" );
+            
+        m.append(" : "+message);
+        System.out.println(m);
+    }
+
+    public void report_fatal_error(String message, Object info) {
+        report_error(message, info);
+        throw new RuntimeException("Fatal Syntax Error");
+    }
+    
+    public Parser(OberonScanner s) throws SyntacticException  {
+        super(s);
+        mySymbol.Env.reset();
+
+        mySymbol.Type intType = new mySymbol.PrimitiveType("INTEGER");
+        mySymbol.Type boolType = new mySymbol.PrimitiveType("BOOLEAN");
+
+        mySymbol.Env.addSymbol_s("INTEGER", intType);
+        mySymbol.Env.addSymbol_s("BOOLEAN", boolType);
+        // mySymbol.Env.addSymbol_s("Write", new mySymbol.FormalParameters(Arrays.asList(
+        //     new mySymbol.Parameter("value", intType)
+        // )));
+        // mySymbol.Env.addSymbol_s("Read", new mySymbol.FormalParameters(Arrays.asList(
+        //     new mySymbol.Parameter("value", intType)
+        // )));
+        // mySymbol.Env.addSymbol_s("WriteLN", new mySymbol.FormalParameters(Arrays.asList()));
+    }
+
+    // 最终建图
+    public void buildCallGraph() throws Exception {
+        int i = 0;
+        for (String[] edge : pendingEdges) {
+            mySymbol.Env calleeEnv = pendingEnvs.get(i);
+            List<mySymbol.Type> calleeParamTypes = pendingTypes.get(i++);
+            // System.out.println(edge[0] + " calls " + edge[1]);
+            while(calleeEnv != null) {
+                String EnvName = calleeEnv.toString();
+                mySymbol.TableSymbol sym = calleeEnv.lookupLocal(edge[1]);
+                if(sym != null && sym.getKind().equals("FORMALPARAMETERS")) {
+                    mySymbol.FormalParameters fp = (mySymbol.FormalParameters) sym;
+                    if(!fp.checkTypes(calleeParamTypes)) {
+                        report_error("Type mismatch in call to " + edge[1] + " at call site " + edge[0], null);
+                    }
+                    graph.addEdge(edge[0], EnvName + "." + edge[1]);
+                    break;
+                }
+                calleeEnv = calleeEnv.getFather();
+            }
+            // graph.addEdge(edge[0], edge[1]);
+        }
+        graph.show();
+    }
+:};
+
+/* ===========================
+   Terminals
+   =========================== */
+terminal String IDENTIFIER;
+terminal Integer INTEGER;
+terminal MODULE, PROCEDURE, BEGIN, END, CONST, TYPE, VAR;
+terminal ARRAY, OF, RECORD, WHILE, DO, IF, THEN, ELSIF, ELSE;
+terminal ASSIGN, EQ, NEQ, LEQ, LT, GEQ, GT;
+terminal PLUS, MINUS, TIMES, DIV, MOD, AND, OR, NOT;
+terminal SEMI, DOT, LPAREN, RPAREN, COMMA, LBRACK, RBRACK, COLON;
+
+/* ===========================
+   Non Terminals
+   =========================== */
+non terminal Void module;
+non terminal Void declarations;
+non terminal Void begin_opt;
+non terminal Void const_part;
+non terminal Void const_decl_list;
+non terminal Void const_decl;
+non terminal Void type_part;
+non terminal Void type_decl_list;
+non terminal Void type_decl;
+non terminal Void var_part;
+non terminal Void var_decl_list;
+non terminal Void var_decl;
+non terminal mySymbol.Type type;
+non terminal mySymbol.ArrayType array_type;
+non terminal mySymbol.RecordType record_type;
+non terminal mySymbol.FpSection field_list;
+non terminal List<mySymbol.FpSection> field_list_tail;
+non terminal mySymbol.FormalParameters formal_parameters_opt, formal_parameters;
+non terminal List<mySymbol.FpSection> fp_section_list_opt, fp_section_list;
+non terminal mySymbol.FpSection fp_section;
+non terminal Boolean var_opt;
+non terminal List<String> identifier_list;
+non terminal Void procedure_part;
+non terminal Void procedure_declaration;
+non terminal Void procedure_heading;
+non terminal Void procedure_body;
+non terminal Void statement_sequence;
+non terminal Void statement;
+non terminal Void assignment;
+non terminal Void procedure_call;
+non terminal Void if_statement;
+non terminal Void elsif_list;
+non terminal Void else_opt;
+non terminal Void while_statement;
+non terminal mySymbol.Expression expression;
+non terminal List<mySymbol.Expression> actual_parameters_opt;
+non terminal List<mySymbol.Expression> expression_list_opt;
+non terminal List<mySymbol.Expression> expression_list;
+// non terminal String selector;
+non terminal mySymbol.Selector selector;
+
+/* ===========================
+   Precedences
+   =========================== */
+precedence right ASSIGN;
+precedence left OR;
+precedence left AND;
+precedence right NOT;
+precedence left EQ, NEQ, LT, LEQ, GT, GEQ;
+precedence left PLUS, MINUS;
+precedence left TIMES, DIV, MOD;
+precedence left LPAREN;
+
+module ::= 
+    MODULE IDENTIFIER:i SEMI {: 
+        mySymbol.Env.enterEnv(i);
+        parser.graph.addProcedure(i, i + "()");
+    :}
+      declarations 
+    begin_opt
+    END IDENTIFIER:i2 DOT {: 
+        mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
+        if (!currentEnv.getScopeName().equals(i2)) {
+            report_fatal_error("Module name mismatch: expected " 
+                + currentEnv.getScopeName() + " but found " + i2, null);
+        }
+        mySymbol.Env.exitEnv();
+        parser.buildCallGraph();
+    :}
+  ;
+
+begin_opt ::=
+    BEGIN statement_sequence
+  | /* empty */
+  ;
+
+declarations ::=
+    const_part
+    type_part
+    var_part
+    procedure_part
+;
+
+/* const */
+const_part ::=
+      CONST const_decl_list
+    | /* empty */
+    ;
+
+const_decl_list ::=
+      const_decl_list const_decl
+    | /* empty */
+    ;
+
+const_decl ::=
+      IDENTIFIER:i EQ expression:e SEMI {: 
+        mySymbol.Env.addSymbol_s(i, new mySymbol.Const(i, e.getType()));
+      :}
+    ;
+
+/* type */
+type_part ::=
+      TYPE type_decl_list
+    | /* empty */
+    ;
+
+type_decl_list ::=
+      type_decl_list type_decl
+    | /* empty */
+    ;
+
+type_decl ::=
+      IDENTIFIER:i EQ type:t SEMI {: 
+        mySymbol.Env.addSymbol_s(i, new mySymbol.AliasType(i, t)); 
+      :}
+    ;
+
+/* var */
+var_part ::=
+      VAR var_decl_list
+    | /* empty */
+    ;
+
+var_decl_list ::=
+      var_decl_list var_decl
+    | /* empty */
+    ;
+
+var_decl ::=
+      identifier_list:il COLON type:t SEMI {: 
+        for(String id : il) { 
+            mySymbol.Env.addSymbol_s(id, new mySymbol.Var(id, t)); 
+        } 
+      :}
+    ;
+
+/* procedure */
+procedure_part ::=
+      procedure_part procedure_declaration SEMI
+    | /* empty */
+    ;
+
+procedure_declaration ::=
+    procedure_heading SEMI procedure_body
+    ;
+
+procedure_body ::=
+    declarations
+    begin_opt
+    END IDENTIFIER:i {: 
+        mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
+        // System.out.println("Exiting procedure: " + currentEnv.getScopeName());
+        if(!currentEnv.getScopeName().equals(i)) {
+          report_fatal_error("Procedure name mismatch: expected " + currentEnv.getScopeName() + " but found " + i, null);
+        }
+        mySymbol.Env.exitEnv(); 
+    :}
+    ;
+
+procedure_heading ::=
+    PROCEDURE IDENTIFIER:i formal_parameters_opt:fp {: 
+        mySymbol.Env.addSymbol_s(i, fp);
+        mySymbol.Env.enterEnv(i);
+        
+        // 添加形参
+        for(mySymbol.Parameter param : fp.getParameterList()) {
+            mySymbol.Var varParam = new mySymbol.Var(param.getName(), param.getType());
+            mySymbol.Env.addSymbol_s(param.getName(), varParam);
+        }
+        mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
+        currentEnv.print(); //currentEnv.getFather().print();
+        parser.graph.addProcedure(currentEnv.toString(), currentEnv.toString() + fp.toString());
+    :}
+  ;
+
+/* ===========================
+   Formal Parameters
+   =========================== */
+
+formal_parameters_opt ::=
+      formal_parameters:fp {: RESULT = fp; :}
+    | /* empty */ {: RESULT = new mySymbol.FormalParameters(); :}
+    ;
+
+formal_parameters ::=
+    LPAREN fp_section_list_opt:fp_s_l_o RPAREN {: 
+        mySymbol.FormalParameters fp = new mySymbol.FormalParameters();
+        for (mySymbol.FpSection section : fp_s_l_o) {
+            fp.addFpSection(section);
+        }
+        RESULT = fp;
+     :}
+    ;
+
+fp_section_list_opt ::=
+      fp_section_list:fp_l {: RESULT = fp_l; :}
+    | /* empty */ {: RESULT = new ArrayList<>(); :}
+    ;
+
+fp_section_list ::=
+      fp_section_list:fpl SEMI fp_section:fp {: RESULT = fpl; RESULT.add(fp); :}
+    | fp_section:fp {: RESULT = new ArrayList<>(); RESULT.add(fp); :}
+    ;
+
+fp_section ::=
+    var_opt:v identifier_list:il COLON type:t {: 
+        RESULT = new mySymbol.FpSection(il, t, v);
+     :}
+    ;
+
+var_opt ::=
+      VAR {: RESULT = true; :}
+    | /* empty */ {: RESULT = false; :}
+    ;
+
+/* ===========================
+   Types
+   =========================== */
+
+type ::=
+      IDENTIFIER:i {: 
+        mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
+        mySymbol.TableSymbol sym = currentEnv.lookup(i);
+        if (sym == null) {
+            report_error("Undefined type: " + i, null);
+            RESULT = new mySymbol.PrimitiveType("ERROR");
+        } else if (sym instanceof mySymbol.Type) {
+            RESULT = (mySymbol.Type) sym;
+        } else {
+            report_error("Identifier " + i + " is not a type", null);
+            RESULT = new mySymbol.PrimitiveType("ERROR");
+        }
+    :}
+    | array_type:at {: RESULT = at; :}
+    | record_type:rt {: RESULT = rt; :}
+    ;
+
+record_type ::=
+    RECORD field_list:fl field_list_tail:flt END {:
+        RESULT = new mySymbol.RecordType();
+        if (fl != null) {
+            RESULT.addField(fl);
+        }
+        if (flt != null) {
+            for (mySymbol.FpSection section : flt) {
+                RESULT.addField(section);
+            }
+        }
+     :}
+    ;
+
+field_list_tail ::=
+    field_list_tail:flt SEMI field_list:fl {:
+        RESULT = flt;
+        if (fl != null) {
+            RESULT.add(fl);
+        }
+    :}
+    | /* empty */ {: RESULT = new ArrayList<>(); :}
+    ;
+
+field_list ::=
+      identifier_list:il COLON type:t {: RESULT = new mySymbol.FpSection(il, t, false); :}
+    | /* empty */ {: RESULT = null; :}
+    ;
+
+array_type ::=
+    ARRAY expression:e OF type:t {: 
+        RESULT = new mySymbol.ArrayType(t);
+     :}
+    ;
+
+/* ===========================
+   Identifier List
+   =========================== */
+
+identifier_list ::=
+      identifier_list:il COMMA IDENTIFIER:i {: RESULT = il; RESULT.add(i); :}
+    | IDENTIFIER:i {: RESULT = new ArrayList<>(); RESULT.add(i); :}
+    ;
+
+/* ===========================
+   Statements
+   =========================== */
+
+statement_sequence ::=
+      statement_sequence SEMI statement
+    | statement
+    ;
+
+statement ::=
+      assignment
+    | procedure_call
+    | if_statement
+    | while_statement
+    | /* empty */
+    ;
+
+while_statement ::=
+    WHILE expression DO
+    statement_sequence
+    END
+    ;
+
+if_statement ::=
+    IF expression THEN
+    statement_sequence
+    elsif_list
+    else_opt
+    END {: /*System.out.println("End of if statement");*/ :}
+    ;
+
+elsif_list ::=
+      elsif_list ELSIF expression THEN statement_sequence
+    | /* empty */
+    ;
+
+else_opt ::=
+      ELSE statement_sequence
+    | /* empty */
+    ;
+
+/* ===========================
+   Procedure Call
+   =========================== */
+
+procedure_call ::=
+    IDENTIFIER:i actual_parameters_opt:ap {: 
+        String callSiteId = "cs_" + (parser.callSiteCounter++);
+
+        // 生成调用代码字符串，如 foo(x, y+1, 2)
+        StringBuilder siteCode = new StringBuilder(i + "(");
+        if (ap != null) {
+            for (int idx = 0; idx < ap.size(); idx++) {
+                if (idx > 0) siteCode.append(", ");
+                siteCode.append(ap.get(idx).getCode());
+            }
+        }
+        siteCode.append(");");
+
+        // System.out.println("Procedure call: " + siteCode.toString());
+        
+        String CallSiteName = mySymbol.Env.getCurrentEnv().toString() + "()";
+        parser.graph.addCallSite(callSiteId, CallSiteName, siteCode.toString());
+        List<mySymbol.Type> paramTypes = new ArrayList<>();
+        if (ap != null)
+            for (mySymbol.Expression arg : ap) paramTypes.add(arg.getType());
+        parser.pendingEdges.add(new String[]{ callSiteId, i});
+        parser.pendingEnvs.add(mySymbol.Env.getCurrentEnv());
+        parser.pendingTypes.add(paramTypes);
+    :}
+  ;
+
+actual_parameters_opt ::=
+      LPAREN expression_list_opt:el RPAREN {: RESULT = el; :}
+    | /* empty */          {: RESULT = new ArrayList<>(); :}
+    ;
+
+expression_list_opt ::=
+      expression_list:el {: RESULT = el; :}
+    | /* empty */         {: RESULT = new ArrayList<>(); :}
+    ;
+
+expression_list ::=
+      expression_list:el COMMA expression:e {: RESULT = el; RESULT.add(e); :}
+    | expression:e {: RESULT = new ArrayList<>(); RESULT.add(e); :}
+    ;
+
+/* ===========================
+   Assignment
+   =========================== */
+
+assignment ::=
+    IDENTIFIER:id selector:s ASSIGN expression:e {:
+        System.out.println("Assignment: " + id + s.getCode() + " := " + e.getCode());
+        mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
+        mySymbol.TableSymbol now_sym = currentEnv.lookup(id);
+        mySymbol.Type currentType;
+        if(now_sym == null) {
+            report_error("Undefined identifier: " + id + ",at line " + idleft + ",column" + idright, null);
+            currentType = new mySymbol.PrimitiveType("ERROR");
+        } else if (now_sym.getKind().equals("VAR")) {
+            mySymbol.Var varSym = (mySymbol.Var) now_sym;
+            currentType = varSym.getType();
+        } else if (now_sym.getKind().equals("CONST")) {
+            mySymbol.Const constSym = (mySymbol.Const) now_sym;
+            currentType = constSym.getType();
+        } 
+        else { // 函数调用不应该出现在表达式中
+            report_error("Identifier " + id + " is not a variable or constant", null);
+            currentType = new mySymbol.PrimitiveType("ERROR");
+        } 
+
+        if(!currentType.getTypeName().equals("ERROR")) {
+            if(!s.isEmpty()) {
+            for(mySymbol.Selector.SelectorNode node : s.getNodes()){
+                if(currentType instanceof mySymbol.AliasType) {
+                    currentType = ((mySymbol.AliasType) currentType).getTargetType();
+                }
+                if(node.isFieldSelector()){
+                    if(!(currentType instanceof mySymbol.RecordType)){
+                        report_error("Field selector applied to non-record type", null);
+                        currentType = new mySymbol.PrimitiveType("ERROR");
+                        break;
+                    }
+                    mySymbol.RecordType record = (mySymbol.RecordType)currentType;
+                    String fieldName = node.getFieldName();
+                    mySymbol.Parameter field = record.getField(fieldName);
+                    if(field == null){
+                        report_error("Undefined field " + fieldName,null);
+                        currentType = new mySymbol.PrimitiveType("ERROR");
+                        break;
+                    }
+                    currentType = field.getType();
+                }
+                else { // index selector
+                    if(!(currentType instanceof mySymbol.ArrayType)){
+                        report_error("Index selector applied to non-array type", null);
+                        currentType = new mySymbol.PrimitiveType("ERROR");
+                        break;
+                    }
+                    currentType = ((mySymbol.ArrayType)currentType).getElementType();
+                }
+            }
+            }
+            if(!currentType.equals(e.getType())) throw new TypeMismatchedException(idleft, idright);
+        }
+    :}
+    ;
+
+/* ===========================
+   Expressions
+   =========================== */
+
+expression ::= 	  INTEGER INTEGER 	{:	if (true)	throw new MissingOperatorException();	:}
+		| EQ expression:e1		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 EQ		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 EQ expression:e2
+		{:
+            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " = " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
+            }
+            else throw new TypeMismatchedException();
+		:}
+
+		| NEQ expression:e1		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 NEQ		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 NEQ expression:e2
+		{:
+            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " != " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
+            }
+            else throw new TypeMismatchedException();
+		:}
+
+		| LEQ expression:e1		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 LEQ		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 LEQ expression:e2
+		{:
+            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " <= " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
+            }
+            else throw new TypeMismatchedException();
+		:}
+
+		| LT expression:e1		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 LT		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 LT expression:e2
+		{:
+            // System.out.println("LT operation: " + e1.getCode() + " < " + e2.getCode());
+            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " < " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
+            }
+            else throw new TypeMismatchedException();
+		:}
+		| GEQ expression:e1		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 GEQ		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 GEQ expression:e2
+		{:
+            System.out.println("GEQ operation: " + e1.getCode() + " >= " + e2.getCode());
+            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " >= " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
+            }
+            else throw new TypeMismatchedException(e1left, e1right);
+		:}
+
+		| GT expression:e1		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 GT		{:	if (true)	throw new MissingOperandException();	:}
+		|expression:e1 GT expression:e2
+		{:
+            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " > " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
+            }
+            else throw new TypeMismatchedException();
+		:}
+		
+		
+		| PLUS expression:e1 {:	
+            if (e1.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression("+" + e1.getCode(), new mySymbol.PrimitiveType("INTEGER"));
+            }
+            else throw new TypeMismatchedException();
+        :}
+		| expression:e1 PLUS		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 PLUS expression:e2 
+		{:
+            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " + " + e2.getCode(), new mySymbol.PrimitiveType("INTEGER"));
+            }
+            else throw new TypeMismatchedException();
+		:}
+
+		| MINUS expression:e1 {:	
+            if (e1.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression("-" + e1.getCode(), new mySymbol.PrimitiveType("INTEGER"));
+            }
+            else throw new TypeMismatchedException();
+        :}
+		| expression:e1 MINUS		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 MINUS expression:e2 
+		{:
+            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " - " + e2.getCode(), new mySymbol.PrimitiveType("INTEGER"));
+            }
+            else throw new TypeMismatchedException();
+		:}
+
+		| TIMES expression:e1		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 TIMES		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 TIMES expression:e2 
+		{:
+            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " * " + e2.getCode(), new mySymbol.PrimitiveType("INTEGER"));
+            }
+            else throw new TypeMismatchedException();
+		:}
+
+		| DIV expression:e1		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 DIV		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 DIV expression:e2 
+		{:
+            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " / " + e2.getCode(), new mySymbol.PrimitiveType("INTEGER"));
+            }
+            else throw new TypeMismatchedException();
+		:}
+
+		| MOD expression:e1		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 MOD		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 MOD expression:e2 
+		{:
+            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " % " + e2.getCode(), new mySymbol.PrimitiveType("INTEGER"));
+            }
+            else throw new TypeMismatchedException();
+		:}
+
+		| AND expression:e1		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 AND		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 AND expression:e2
+		{:
+            // System.out.println("AND operation: " + e1.getCode() + " AND " + e2.getCode());
+			if(e1.getType().getTypeName().equals("BOOLEAN") && e2.getType().getTypeName().equals("BOOLEAN")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " AND " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
+            }
+            else throw new TypeMismatchedException(e1left, e1right);
+		:}
+
+		| OR expression:e1 		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 OR 		{:	if (true)	throw new MissingOperandException();	:}
+		| expression:e1 OR expression:e2
+		{:
+			if(e1.getType().getTypeName().equals("BOOLEAN") && e2.getType().getTypeName().equals("BOOLEAN")) {
+                RESULT = new mySymbol.Expression(e1.getCode() + " OR " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
+            }
+            else throw new TypeMismatchedException();
+		:}
+
+		| NOT			{:	if (true)	throw new MissingOperandException();	:}
+		| NOT expression:e
+		{:
+			if(e.getType().getTypeName().equals("BOOLEAN")) {
+                RESULT = new mySymbol.Expression("NOT " + e.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
+            }
+            else throw new TypeMismatchedException();
+		:}
+
+		| LPAREN expression:e RPAREN	{:	RESULT = e;	:}
+		| LPAREN RPAREN{:		if (true)	throw new MissingOperandException();		:}
+
+		| IDENTIFIER:id selector: s
+		{:
+            mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
+            mySymbol.TableSymbol now_sym = currentEnv.lookup(id);
+            mySymbol.Type currentType;
+            if(now_sym == null) {
+                report_error("Undefined identifier: " + id + ",at line " + idleft + ",column" + idright, null);
+                currentType = new mySymbol.PrimitiveType("ERROR");
+            } else if (now_sym.getKind().equals("VAR")) {
+                mySymbol.Var varSym = (mySymbol.Var) now_sym;
+                currentType = varSym.getType();
+            } else if (now_sym.getKind().equals("CONST")) {
+                mySymbol.Const constSym = (mySymbol.Const) now_sym;
+                currentType = constSym.getType();
+            } 
+            else { // 函数调用不应该出现在表达式中
+                report_error("Identifier " + id + " is not a variable or constant", null);
+                currentType = new mySymbol.PrimitiveType("ERROR");
+            } 
+
+            if(!currentType.getTypeName().equals("ERROR")) {
+                String code = id;
+                if(!s.isEmpty()) {
+                    for(mySymbol.Selector.SelectorNode node : s.getNodes()){
+                        if(currentType instanceof mySymbol.AliasType) {
+                            currentType = ((mySymbol.AliasType) currentType).getTargetType();
+                        }
+                        if(node.isFieldSelector()){
+                            if(!(currentType instanceof mySymbol.RecordType)){
+                                report_error("Field selector applied to non-record type", null);
+                                currentType = new mySymbol.PrimitiveType("ERROR");
+                                break;
+                            }
+                            mySymbol.RecordType record = (mySymbol.RecordType)currentType;
+                            String fieldName = node.getFieldName();
+                            mySymbol.Parameter field = record.getField(fieldName);
+                            if(field == null){
+                                report_error("Undefined field " + fieldName,null);
+                                currentType = new mySymbol.PrimitiveType("ERROR");
+                                break;
+                            }
+                            currentType = field.getType();
+                        }
+                        else { // index selector
+                            if(!(currentType instanceof mySymbol.ArrayType)){
+                                report_error("Index selector applied to non-array type", null);
+                                currentType = new mySymbol.PrimitiveType("ERROR");
+                                break;
+                            }
+                            currentType = ((mySymbol.ArrayType)currentType).getElementType();
+                        }
+                    }
+                    code += s.getCode();
+                }
+                if(!currentType.isPrimitiveType()) {
+                    throw new TypeMismatchedException(idleft, idright);
+                    // 目前仅支持基本类型的变量参与表达式计算
+                }
+                RESULT = new mySymbol.Expression(code, currentType);
+            }
+            else RESULT = new mySymbol.Expression(id, currentType);
+		:}
+
+		| INTEGER:i
+		{:
+			RESULT = new mySymbol.Expression(i.toString(), new mySymbol.PrimitiveType("INTEGER"));
+		:};
+
+/* ===========================
+   Selector
+   =========================== */
+
+selector ::=
+      selector:s DOT IDENTIFIER:i {:
+        RESULT = s;
+        RESULT.addFieldSelector(i);
+    :}
+    | selector:s LBRACK expression:e RBRACK {:
+        if(!e.getType().getTypeName().equals("INTEGER")) {
+            throw new TypeMismatchedException(eleft, eright);
+        }
+        RESULT = s;
+        RESULT.addIndexSelector(e.getCode());
+    :}
+    | /* empty */ {: RESULT = new mySymbol.Selector(); :}
+    ; /* TODO: 支持selector */
