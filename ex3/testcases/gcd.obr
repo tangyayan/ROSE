@@ -1,14 +1,14 @@
 (* A sample Oberon-0 source program. *)
 MODULE Sample;
     CONST
-        NN=040;
+        N=040;
     TYPE
         Node=RECORD
             id: INTEGER;
             val: INTEGER
         END;
     VAR
-        a: ARRAY NN OF Node;
+        a: ARRAY N OF Node;
 
     (* Calculate the greatest common divisor. *)
     PROCEDURE Gcd(x,y: INTEGER; VAR ans: INTEGER);
@@ -28,8 +28,8 @@ MODULE Sample;
     BEGIN
         Read(n);
         i := 0;
-        WHILE ~(i >= n) & n<NN DO
-            Read(a[i].id>2); Read(a[i].val);
+        WHILE ~(i >= n) & n<N DO
+            Read(a[i].id); Read(a[i].val);
             i := i + 1
         END;
         Read(x);
@@ -65,5 +65,5 @@ MODULE Sample;
             Gcd(x, y, ans);
             Write(ans)
         END
-    END Main;
+    END Main
 END Sample.

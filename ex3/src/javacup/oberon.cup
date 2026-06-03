@@ -310,12 +310,12 @@ type ::=
         mySymbol.TableSymbol sym = currentEnv.lookup(i);
         if (sym == null) {
             report_error("Undefined type: " + i, null);
-            RESULT = new mySymbol.PrimitiveType("ERROR");
+            RESULT = mySymbol.PrimitiveType.ERROR;
         } else if (sym instanceof mySymbol.Type) {
             RESULT = (mySymbol.Type) sym;
         } else {
             report_error("Identifier " + i + " is not a type", null);
-            RESULT = new mySymbol.PrimitiveType("ERROR");
+            RESULT = mySymbol.PrimitiveType.ERROR;
         }
     :}
     | array_type:at {: RESULT = at; :}
@@ -494,7 +494,7 @@ assignment ::=
         mySymbol.Type currentType;
         if(now_sym == null) {
             report_error("Undefined identifier: " + id + ",at line " + idleft + ",column" + idright, null);
-            currentType = new mySymbol.PrimitiveType("ERROR");
+            currentType = mySymbol.PrimitiveType.ERROR;
         } else if (now_sym.getKind().equals("VAR")) {
             mySymbol.Var varSym = (mySymbol.Var) now_sym;
             currentType = varSym.getType();
@@ -504,7 +504,7 @@ assignment ::=
         } 
         else { // 函数调用不应该出现在表达式中
             report_error("Identifier " + id + " is not a variable or constant", null);
-            currentType = new mySymbol.PrimitiveType("ERROR");
+            currentType = mySymbol.PrimitiveType.ERROR;
         } 
 
         if(!currentType.getTypeName().equals("ERROR")) {
@@ -516,7 +516,7 @@ assignment ::=
                 if(node.isFieldSelector()){
                     if(!(currentType instanceof mySymbol.RecordType)){
                         report_error("Field selector applied to non-record type", null);
-                        currentType = new mySymbol.PrimitiveType("ERROR");
+                        currentType = mySymbol.PrimitiveType.ERROR;
                         break;
                     }
                     mySymbol.RecordType record = (mySymbol.RecordType)currentType;
@@ -524,7 +524,7 @@ assignment ::=
                     mySymbol.Parameter field = record.getField(fieldName);
                     if(field == null){
                         report_error("Undefined field " + fieldName,null);
-                        currentType = new mySymbol.PrimitiveType("ERROR");
+                        currentType = mySymbol.PrimitiveType.ERROR;
                         break;
                     }
                     currentType = field.getType();
@@ -532,177 +532,202 @@ assignment ::=
                 else { // index selector
                     if(!(currentType instanceof mySymbol.ArrayType)){
                         report_error("Index selector applied to non-array type", null);
-                        currentType = new mySymbol.PrimitiveType("ERROR");
+                        currentType = mySymbol.PrimitiveType.ERROR;
                         break;
                     }
                     currentType = ((mySymbol.ArrayType)currentType).getElementType();
                 }
             }
             }
-            if(!currentType.equals(e.getType())) throw new TypeMismatchedException(idleft, idright);
+            if(!currentType.equals(e.getType()))
+            {
+                report_error("Type mismatch in assignment: cannot assign " + e.getType().getTypeName() + " to " + currentType.getTypeName(), null);
+            }
         }
     :}
+    ;
+
+/* ===========================
+   Operator non-terminals
+   =========================== */
+
+binaryintop ::=
+      PLUS
+      {: RESULT = "+"; :}
+    | MINUS
+      {: RESULT = "-"; :}
+    | TIMES
+      {: RESULT = "*"; :}
+    | DIV
+      {: RESULT = "/"; :}
+    | MOD
+      {: RESULT = "%"; :}
+    ;
+
+binaryrelop ::=
+      EQ
+      {: RESULT = "="; :}
+    | NEQ
+      {: RESULT = "!="; :}
+    | LT
+      {: RESULT = "<"; :}
+    | LEQ
+      {: RESULT = "<="; :}
+    | GT
+      {: RESULT = ">"; :}
+    | GEQ
+      {: RESULT = ">="; :}
+    ;
+
+binaryboolop ::=
+      AND
+      {: RESULT = "AND"; :}
+    | OR
+      {: RESULT = "OR"; :}
     ;
 
 /* ===========================
    Expressions
    =========================== */
 
-expression ::= 	  INTEGER INTEGER 	{:	if (true)	throw new MissingOperatorException();	:}
-		| EQ expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 EQ		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 EQ expression:e2
-		{:
-            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " = " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
-            }
-            else throw new TypeMismatchedException();
-		:}
+expression ::=
 
-		| NEQ expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 NEQ		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 NEQ expression:e2
-		{:
-            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " != " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* ---- Error: two integers with no operator ---- */
+      INTEGER INTEGER
+      {:
+        parser.report_error("Missing operator between integers at line " + ileft, null);
+        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+      :}
 
-		| LEQ expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 LEQ		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 LEQ expression:e2
-		{:
-            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " <= " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* ---- Binary integer arithmetic ---- */
+      | binaryintop:op expression:e
+      {:
+        parser.report_error("Missing left operand for '" + op + "' at line " + eleft, null);
+        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+      :}
+      | expression:e binaryintop:op
+      {:
+        parser.report_error("Missing right operand for '" + op + "' at line " + eright, null);
+        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+      :}
+      | expression:e1 binaryintop:op expression:e2
+      {:
+        if (e1.getType() != mySymbol.PrimitiveType.INTEGER
+                || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
+            parser.report_error("Type mismatch in '" + op
+                + "': expected INTEGER at line " + e1left, null);
+            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+        } else {
+            RESULT = new mySymbol.Expression(
+                e1.getCode() + " " + op + " " + e2.getCode(),
+                mySymbol.PrimitiveType.INTEGER);
+        }
+      :}
 
-		| LT expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 LT		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 LT expression:e2
-		{:
-            // System.out.println("LT operation: " + e1.getCode() + " < " + e2.getCode());
-            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " < " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
-            }
-            else throw new TypeMismatchedException();
-		:}
-		| GEQ expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 GEQ		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 GEQ expression:e2
-		{:
-            // System.out.println("GEQ operation: " + e1.getCode() + " >= " + e2.getCode());
-            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " >= " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
-            }
-            else throw new TypeMismatchedException(e1left, e1right);
-		:}
+      /* ---- Unary plus ---- */
+      | PLUS expression:e
+      {:
+        if (e.getType() != mySymbol.PrimitiveType.INTEGER) {
+            parser.report_error("Unary '+' requires INTEGER operand, got "
+                + e.getType().getTypeName() + " at line " + eleft, null);
+            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+        } else {
+            RESULT = new mySymbol.Expression("+" + e.getCode(),
+                mySymbol.PrimitiveType.INTEGER);
+        }
+      :}
 
-		| GT expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 GT		{:	if (true)	throw new MissingOperandException();	:}
-		|expression:e1 GT expression:e2
-		{:
-            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " > " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
-            }
-            else throw new TypeMismatchedException();
-		:}
-		
-		
-		| PLUS expression:e1 {:	
-            if (e1.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression("+" + e1.getCode(), new mySymbol.PrimitiveType("INTEGER"));
-            }
-            else throw new TypeMismatchedException();
-        :}
-		| expression:e1 PLUS		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 PLUS expression:e2 
-		{:
-            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " + " + e2.getCode(), new mySymbol.PrimitiveType("INTEGER"));
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* ---- Unary minus ---- */
+      | MINUS expression:e
+      {:
+        if (e.getType() != mySymbol.PrimitiveType.INTEGER) {
+            parser.report_error("Unary '-' requires INTEGER operand, got "
+                + e.getType().getTypeName() + " at line " + eleft, null);
+            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+        } else {
+            RESULT = new mySymbol.Expression("-" + e.getCode(),
+                mySymbol.PrimitiveType.INTEGER);
+        }
+      :}
 
-		| MINUS expression:e1 {:	
-            if (e1.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression("-" + e1.getCode(), new mySymbol.PrimitiveType("INTEGER"));
-            }
-            else throw new TypeMismatchedException();
-        :}
-		| expression:e1 MINUS		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 MINUS expression:e2 
-		{:
-            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " - " + e2.getCode(), new mySymbol.PrimitiveType("INTEGER"));
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* ---- Relational (comparison) operators ---- */
+      | binaryrelop:op expression:e
+      {:
+        parser.report_error("Missing left operand for '" + op + "' at line " + eleft, null);
+        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+      :}
+      | expression:e binaryrelop:op
+      {:
+        parser.report_error("Missing right operand for '" + op + "' at line " + eright, null);
+        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+      :}
+      | expression:e1 binaryrelop:op expression:e2
+      {:
+        if (e1.getType() != mySymbol.PrimitiveType.INTEGER
+                || e2.getType() != mySymbol.PrimitiveType.INTEGER) {
+            parser.report_error("Type mismatch in '" + op
+                + "': expected INTEGER at line " + e1left, null);
+            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+        } else {
+            RESULT = new mySymbol.Expression(
+                e1.getCode() + " " + op + " " + e2.getCode(),
+                mySymbol.PrimitiveType.BOOLEAN);
+        }
+      :}
 
-		| TIMES expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 TIMES		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 TIMES expression:e2 
-		{:
-            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " * " + e2.getCode(), new mySymbol.PrimitiveType("INTEGER"));
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* ---- Binary boolean operators ---- */
+      | binaryboolop:op expression:e
+      {:
+        parser.report_error("Missing left operand for '" + op + "' at line " + eleft, null);
+        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+      :}
+      | expression:e binaryboolop:op
+      {:
+        parser.report_error("Missing right operand for '" + op + "' at line " + eright, null);
+        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+      :}
+      | expression:e1 binaryboolop:op expression:e2
+      {:
+        if (e1.getType() != mySymbol.PrimitiveType.BOOLEAN
+                || e2.getType() != mySymbol.PrimitiveType.BOOLEAN) {
+            parser.report_error("Type mismatch in '" + op
+                + "': expected BOOLEAN at line " + e1left, null);
+            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+        } else {
+            RESULT = new mySymbol.Expression(
+                e1.getCode() + " " + op + " " + e2.getCode(),
+                mySymbol.PrimitiveType.BOOLEAN);
+        }
+      :}
 
-		| DIV expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 DIV		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 DIV expression:e2 
-		{:
-            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " / " + e2.getCode(), new mySymbol.PrimitiveType("INTEGER"));
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* ---- Logical NOT ---- */
+      | NOT
+      {:
+        parser.report_error("Missing operand for 'NOT' at line " + NOTleft, null);
+        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+      :}
+      | NOT expression:e
+      {:
+        if (e.getType() != mySymbol.PrimitiveType.BOOLEAN) {
+            parser.report_error("Type mismatch in 'NOT': expected BOOLEAN, got "
+                + e.getType().getTypeName() + " at line " + eleft, null);
+            RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+        } else {
+            RESULT = new mySymbol.Expression("NOT " + e.getCode(),
+                mySymbol.PrimitiveType.BOOLEAN);
+        }
+      :}
 
-		| MOD expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 MOD		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 MOD expression:e2 
-		{:
-            if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " % " + e2.getCode(), new mySymbol.PrimitiveType("INTEGER"));
-            }
-            else throw new TypeMismatchedException();
-		:}
-
-		| AND expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 AND		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 AND expression:e2
-		{:
-            // System.out.println("AND operation: " + e1.getCode() + " AND " + e2.getCode());
-			if(e1.getType().getTypeName().equals("BOOLEAN") && e2.getType().getTypeName().equals("BOOLEAN")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " AND " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
-            }
-            else throw new TypeMismatchedException(e1left, e1right);
-		:}
-
-		| OR expression:e1 		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 OR 		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 OR expression:e2
-		{:
-			if(e1.getType().getTypeName().equals("BOOLEAN") && e2.getType().getTypeName().equals("BOOLEAN")) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " OR " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
-            }
-            else throw new TypeMismatchedException();
-		:}
-
-		| NOT			{:	if (true)	throw new MissingOperandException();	:}
-		| NOT expression:e
-		{:
-			if(e.getType().getTypeName().equals("BOOLEAN")) {
-                RESULT = new mySymbol.Expression("NOT " + e.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
-            }
-            else throw new TypeMismatchedException();
-		:}
-
-		| LPAREN expression:e RPAREN	{:	RESULT = e;	:}
-		| LPAREN RPAREN{:		if (true)	throw new MissingOperandException();		:}
+      /* ---- Parenthesized expressions ---- */
+      | LPAREN expression:e RPAREN
+      {:
+        RESULT = e;
+      :}
+      | LPAREN RPAREN
+      {:
+        parser.report_error("Empty parentheses are not allowed at line " + LPARENleft, null);
+        RESULT = new mySymbol.Expression("ERROR", mySymbol.PrimitiveType.ERROR);
+      :}
 
 		| IDENTIFIER:id selector: s
 		{:
@@ -711,7 +736,7 @@ expression ::= 	  INTEGER INTEGER 	{:	if (true)	throw new MissingOperatorExcepti
             mySymbol.Type currentType;
             if(now_sym == null) {
                 report_error("Undefined identifier: " + id + ",at line " + idleft + ",column" + idright, null);
-                currentType = new mySymbol.PrimitiveType("ERROR");
+                currentType = mySymbol.PrimitiveType.ERROR;
             } else if (now_sym.getKind().equals("VAR")) {
                 mySymbol.Var varSym = (mySymbol.Var) now_sym;
                 currentType = varSym.getType();
@@ -721,7 +746,7 @@ expression ::= 	  INTEGER INTEGER 	{:	if (true)	throw new MissingOperatorExcepti
             } 
             else { // 函数调用不应该出现在表达式中
                 report_error("Identifier " + id + " is not a variable or constant", null);
-                currentType = new mySymbol.PrimitiveType("ERROR");
+                currentType = mySymbol.PrimitiveType.ERROR;
             } 
 
             if(!currentType.getTypeName().equals("ERROR")) {
@@ -734,7 +759,7 @@ expression ::= 	  INTEGER INTEGER 	{:	if (true)	throw new MissingOperatorExcepti
                         if(node.isFieldSelector()){
                             if(!(currentType instanceof mySymbol.RecordType)){
                                 report_error("Field selector applied to non-record type", null);
-                                currentType = new mySymbol.PrimitiveType("ERROR");
+                                currentType = mySymbol.PrimitiveType.ERROR;
                                 break;
                             }
                             mySymbol.RecordType record = (mySymbol.RecordType)currentType;
@@ -742,7 +767,7 @@ expression ::= 	  INTEGER INTEGER 	{:	if (true)	throw new MissingOperatorExcepti
                             mySymbol.Parameter field = record.getField(fieldName);
                             if(field == null){
                                 report_error("Undefined field " + fieldName,null);
-                                currentType = new mySymbol.PrimitiveType("ERROR");
+                                currentType = mySymbol.PrimitiveType.ERROR;
                                 break;
                             }
                             currentType = field.getType();
@@ -750,7 +775,7 @@ expression ::= 	  INTEGER INTEGER 	{:	if (true)	throw new MissingOperatorExcepti
                         else { // index selector
                             if(!(currentType instanceof mySymbol.ArrayType)){
                                 report_error("Index selector applied to non-array type", null);
-                                currentType = new mySymbol.PrimitiveType("ERROR");
+                                currentType = mySymbol.PrimitiveType.ERROR;
                                 break;
                             }
                             currentType = ((mySymbol.ArrayType)currentType).getElementType();
@@ -769,7 +794,7 @@ expression ::= 	  INTEGER INTEGER 	{:	if (true)	throw new MissingOperatorExcepti
 
 		| INTEGER:i
 		{:
-			RESULT = new mySymbol.Expression(i.toString(), new mySymbol.PrimitiveType("INTEGER"));
+			RESULT = new mySymbol.Expression(i.toString(), mySymbol.PrimitiveType.INTEGER);
 		:};
 
 /* ===========================
