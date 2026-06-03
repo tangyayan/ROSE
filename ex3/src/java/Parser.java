@@ -573,7 +573,7 @@ public class Parser extends java_cup.runtime.lr_parser {
  
     public CallGraph graph = new CallGraph();
     
-    // 延迟边：{callSiteId, calleeName} {Env} {calleeType}
+    // 延迟边：{callSiteId, calleeName, callSite} {Env} {calleeType}
     // calleName global.procedure name 即为id
     public List<String[]> pendingEdges = new ArrayList<>();
     public List<mySymbol.Env> pendingEnvs = new ArrayList<>();
@@ -620,8 +620,12 @@ public class Parser extends java_cup.runtime.lr_parser {
                 mySymbol.TableSymbol sym = calleeEnv.lookupLocal(edge[1]);
                 if(sym != null && sym.getKind().equals("FORMALPARAMETERS")) {
                     mySymbol.FormalParameters fp = (mySymbol.FormalParameters) sym;
-                    if(!fp.checkTypes(calleeParamTypes)) {
-                        report_error("Type mismatch in call to " + edge[1] + " at call site " + edge[0], null);
+                    // if(!fp.checkTypes(calleeParamTypes)) {
+                    //     report_error("Type mismatch in call to " + edge[1] + " at call site " + edge[0], null);
+                    // }
+                    String errorString = fp.checkTypesWithMessage(calleeParamTypes);
+                    if(errorString==null) {
+                        report_error("Call site " + edge[3] + " calls " + edge[1] + ": " + errorString, null);
                     }
                     graph.addEdge(edge[0], EnvName + "." + edge[1]);
                     break;
@@ -966,7 +970,7 @@ class CUP$Parser$actions {
             mySymbol.Env.addSymbol_s(param.getName(), varParam);
         }
         mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
-        currentEnv.print(); //currentEnv.getFather().print();
+        // currentEnv.print(); currentEnv.getFather().print();
         parser.graph.addProcedure(currentEnv.toString(), currentEnv.toString() + fp.toString());
     
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("procedure_heading",26, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
@@ -1418,10 +1422,14 @@ class CUP$Parser$actions {
             EnvName = calleeEnv.toString();
             if(sym != null && sym.getKind().equals("FORMALPARAMETERS")) {
                 mySymbol.FormalParameters fp = (mySymbol.FormalParameters) sym;
-                if(!fp.checkTypes(paramTypes)) {
-                    report_error(
-                        "Type mismatch in call to " + i + " at call site " + siteCode + " at line " + ileft + ", column " + iright,
-                        null);
+                // if(!fp.checkTypes(paramTypes)) {
+                //     report_error(
+                //         "Type mismatch in call to " + i + " at call site " + siteCode + " at line " + ileft + ", column " + iright,
+                //         null);
+                // }
+                String errorString = fp.checkTypesWithMessage(paramTypes);
+                if(errorString!=null) {
+                    report_error("Call site " + siteCode + " at line " + ileft + ", column " + iright + ": " + errorString, null);
                 }
                 break;
             }
@@ -1436,7 +1444,7 @@ class CUP$Parser$actions {
             parser.graph.addCallSite(callSiteId, CallSiteName, siteCode.toString());
             
             if(calleeEnv==null) {
-                parser.pendingEdges.add(new String[]{ callSiteId, i});
+                parser.pendingEdges.add(new String[]{ callSiteId, i, siteCode.toString() });
                 parser.pendingEnvs.add(mySymbol.Env.getCurrentEnv());
                 parser.pendingTypes.add(paramTypes);
             }
@@ -1532,7 +1540,6 @@ class CUP$Parser$actions {
 		int eright = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
 		
-        System.out.println("Assignment: " + id + s.getCode() + " := " + e.getCode());
         mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
         mySymbol.TableSymbol now_sym = currentEnv.lookup(id);
         mySymbol.Type currentType;
@@ -1811,7 +1818,7 @@ class CUP$Parser$actions {
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
 		
-            System.out.println("GEQ operation: " + e1.getCode() + " >= " + e2.getCode());
+            // System.out.println("GEQ operation: " + e1.getCode() + " >= " + e2.getCode());
             if (e1.getType().getTypeName().equals("INTEGER") && e2.getType().getTypeName().equals("INTEGER")) {
                 RESULT = new mySymbol.Expression(e1.getCode() + " >= " + e2.getCode(), new mySymbol.PrimitiveType("BOOLEAN"));
             }
