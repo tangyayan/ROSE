@@ -57,7 +57,7 @@ MODULE Sample;
     (* Call the greatest common divisor function. *)
     PROCEDURE Main;
         VAR x,y,ans: INTEGER;
-        VAR b: BOOLEAN;
+            b: BOOLEAN;
     BEGIN
         Read(x); Read(y);
         IF x<0 OR y<0 THEN  
