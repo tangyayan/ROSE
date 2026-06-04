@@ -531,6 +531,9 @@ assignment ::=
                 "in assignment, cannot assign " + e.getType().getTypeName() + " to " + isType.getTypeName());
         }
     :}
+    | identifier_selector:is ASSIGN {:
+        ErrorReport.reportError(ErrorType.SyntacticException, isright, "Missing expression in assignment");
+    :}
     ;
 
 /* ===========================

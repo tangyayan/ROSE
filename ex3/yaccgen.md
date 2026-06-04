@@ -128,17 +128,22 @@ classDiagram
     <<interface>>
     +getTypeName() String
     +isPrimitiveType() Bool
+    +getTargetType() Type
   }
 
   class PrimitiveType {
     -String typeName 
     +getTypeName() String
+    +equals() boolean
+    +getTargetType() Type
   }
 
   class AliasType  {
     -String typeName
     +Type target
     +getTypeName() String
+    +equals() boolean
+    +getTargetType() Type
   }
 
   class ArrayType {
@@ -146,12 +151,16 @@ classDiagram
     -int length
     +getTypeName() String
     +getElementType() Type
+    +equals() boolean
+    +getTargetType() Type
   }
 
   class RecordType {
     -List~parameter~ fields
     +getTypeName() String
     +getFields() List~FpSection~
+    +equals() boolean
+    +getTargetType() Type
   }
 
   Symbol <|.. FormalParameters : implements
@@ -269,3 +278,8 @@ gcd018：
 对于正负号和乘号 `-1+3` 以及 `--1*2` 的优先级选取
 
 ![1780566234709](image/yaccgen/1780566234709.png)
+
+
+测试逻辑运算的优先级： `~bool & bool = bool`
+
+![1780566750929](image/yaccgen/1780566750929.png)

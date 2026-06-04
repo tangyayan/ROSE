@@ -106,25 +106,25 @@ WhiteSpace={LineTerminator}|[ \t\f]
 
     {Identifier} { 
         if(yylength() > 24) {
-            throw new IllegalIdentifierLengthException();
+            throw new IllegalIdentifierLengthException("at line " + (yyline+1) + ", column " + (yycolumn+1));
         }
         return symbol(sym.IDENTIFIER, yytext().toUpperCase());
     }
-    {ErrorInteger} { throw new IllegalIntegerException(); }
+    {ErrorInteger} { throw new IllegalIntegerException("at line " + (yyline+1) + ", column " + (yycolumn+1)); }
     {DecInteger} { 
         if(yylength() > 12) {
-            throw new IllegalIntegerRangeException();
+            throw new IllegalIntegerRangeException("at line " + (yyline+1) + ", column " + (yycolumn+1));
         }
         return symbol(sym.INTEGER, Integer.valueOf(yytext()));
     }
     {OctInteger} { 
         if(yylength() > 12) {
-            throw new IllegalIntegerRangeException();
+            throw new IllegalIntegerRangeException("at line " + (yyline+1) + ", column " + (yycolumn+1));
         }
         String octStr = yytext();
         for (char c : octStr.toCharArray()) {
             if (c < '0' || c > '7') {
-                throw new IllegalOctalException();
+                throw new IllegalOctalException("at line " + (yyline+1) + ", column " + (yycolumn+1));
             }
         }
         return symbol(sym.INTEGER, Integer.valueOf(Integer.parseInt(octStr, 8)));

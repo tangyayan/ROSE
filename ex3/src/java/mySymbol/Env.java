@@ -63,7 +63,7 @@ public class Env {
     public void addSymbol(String name, TableSymbol symbol) throws SyntacticException {
         if (table.containsKey(name)) {
             // TODO: 错误恢复
-            throw new SyntacticException( "Symbol '" + name + "' already defined in scope '" + scopeName + "'");
+            // throw new SyntacticException( "Symbol '" + name + "' already defined in scope '" + scopeName + "'");
         }
         table.put(name, symbol);
     }
