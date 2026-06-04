@@ -6,7 +6,7 @@ echo.
 
 java ^
 -cp bin;lib\java-cup-11b-runtime.jar;lib\callgraph.jar;lib\jgraph.jar ^
-Main callgraph.obr
+Main testcases\callgraph.obr
 
 echo.
 echo ========== Test Complete ==========

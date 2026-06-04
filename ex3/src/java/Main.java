@@ -12,6 +12,6 @@ public class Main {
         Parser p = new Parser(new OberonScanner(reader));
 
         p.parse();
-        // p.buildCallGraph();
+        p.buildCallGraph(true);
     }
 }

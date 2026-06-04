@@ -43,7 +43,7 @@ parser code  {:
     }
 
     // 最终建图
-    public void buildCallGraph() throws Exception {
+    public void buildCallGraph(boolean is_show) throws Exception {
         for (PendingEdges edge : pendingEdges) {
             mySymbol.Env calleeEnv = edge.getCallerEnv();
             List<mySymbol.Type> calleeParamTypes = edge.getParamTypes();
@@ -67,7 +67,7 @@ parser code  {:
                 calleeEnv = calleeEnv.getFather();
             }
         }
-        // graph.show();
+        if(is_show) graph.show();
     }
 :};
 
@@ -152,7 +152,6 @@ module ::=
                 + currentEnv.getScopeName() + " but found " + i2, null);
         }
         mySymbol.Env.exitEnv();
-        parser.buildCallGraph();
     :}
   ;
 

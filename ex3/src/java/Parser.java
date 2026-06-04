@@ -641,7 +641,7 @@ public class Parser extends java_cup.runtime.lr_parser {
     }
 
     // 最终建图
-    public void buildCallGraph() throws Exception {
+    public void buildCallGraph(boolean is_show) throws Exception {
         for (PendingEdges edge : pendingEdges) {
             mySymbol.Env calleeEnv = edge.getCallerEnv();
             List<mySymbol.Type> calleeParamTypes = edge.getParamTypes();
@@ -665,7 +665,7 @@ public class Parser extends java_cup.runtime.lr_parser {
                 calleeEnv = calleeEnv.getFather();
             }
         }
-        // graph.show();
+        if(is_show) graph.show();
     }
 
 
@@ -727,7 +727,6 @@ class CUP$Parser$actions {
                 + currentEnv.getScopeName() + " but found " + i2, null);
         }
         mySymbol.Env.exitEnv();
-        parser.buildCallGraph();
     
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("module",0, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-8)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
             }

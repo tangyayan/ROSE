@@ -211,6 +211,7 @@ public class OberonParserTest {
             );
             Parser p = new Parser(new OberonScanner(reader));
             p.parse();
+            p.buildCallGraph(false);
         } catch (Exception e) {
             // Parser may throw — still want to inspect whatever was printed
             // Write the exception itself to the captured stream so callers
