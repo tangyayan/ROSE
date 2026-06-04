@@ -57,7 +57,9 @@ parser code  {:
                     mySymbol.FormalParameters fp = (mySymbol.FormalParameters) sym;
                     String errorString = fp.checkTypesWithMessage(calleeParamTypes);
                     if(errorString!=null) {
-                        ErrorReport.reportError(ErrorType.TypeMismatchedException, callSiteLine, errorString);
+                        if(errorString.split("\\s+")[0].equals("expected"))
+                            ErrorReport.reportError(ErrorType.ParameterMismatchedException, callSiteLine, errorString);
+                        else ErrorReport.reportError(ErrorType.TypeMismatchedException, callSiteLine, errorString);
                     }
                     graph.addEdge(callSiteId, EnvName + "." + calleeName);
                     break;
@@ -65,7 +67,7 @@ parser code  {:
                 calleeEnv = calleeEnv.getFather();
             }
         }
-        graph.show();
+        // graph.show();
     }
 :};
 
@@ -443,7 +445,12 @@ procedure_call ::=
                 mySymbol.FormalParameters fp = (mySymbol.FormalParameters) sym;
                 String errorString = fp.checkTypesWithMessage(paramTypes);
                 if(errorString!=null) {
-                    ErrorReport.reportError(ErrorType.TypeMismatchedException, ileft, errorString);
+                    if(errorString.split("\\s+")[0].equals("expected")){
+                        if(!(i.equals("READ") || i.equals("WRITE") || i.equals("WRITELN")))
+                            ErrorReport.reportError(ErrorType.ParameterMismatchedException, ileft, errorString);
+                        else ErrorReport.reportError(ErrorType.MissingOperatorException, ileft, errorString);
+                    }
+                    else ErrorReport.reportError(ErrorType.TypeMismatchedException, ileft, errorString);
                 }
                 break;
             }
@@ -644,7 +651,6 @@ expression ::=
         RESULT = new mySymbol.Expression("ERROR", errorType);
       :}
       | expression:e1 PLUS expression:e2 {: 
-        // System.out.println("(" + e1.getCode() + ") + (" + e2.getCode() + ")");
         if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
             RESULT = new mySymbol.Expression(e1.getCode() + " + " + e2.getCode(), intType);
         } else {
@@ -655,7 +661,6 @@ expression ::=
 
       /* Arithmetic - MINUS (unary & binary) */
       | MINUS expression:e1 {: 
-        // System.out.println("-("+e1.getCode()+")");
         if(e1.getType().getTargetType().equals(intType)) {
             RESULT = new mySymbol.Expression("-" + e1.getCode(), intType);
         } else {

@@ -655,7 +655,9 @@ public class Parser extends java_cup.runtime.lr_parser {
                     mySymbol.FormalParameters fp = (mySymbol.FormalParameters) sym;
                     String errorString = fp.checkTypesWithMessage(calleeParamTypes);
                     if(errorString!=null) {
-                        ErrorReport.reportError(ErrorType.TypeMismatchedException, callSiteLine, errorString);
+                        if(errorString.split("\\s+")[0].equals("expected"))
+                            ErrorReport.reportError(ErrorType.ParameterMismatchedException, callSiteLine, errorString);
+                        else ErrorReport.reportError(ErrorType.TypeMismatchedException, callSiteLine, errorString);
                     }
                     graph.addEdge(callSiteId, EnvName + "." + calleeName);
                     break;
@@ -663,7 +665,7 @@ public class Parser extends java_cup.runtime.lr_parser {
                 calleeEnv = calleeEnv.getFather();
             }
         }
-        graph.show();
+        // graph.show();
     }
 
 
@@ -1483,7 +1485,12 @@ class CUP$Parser$actions {
                 mySymbol.FormalParameters fp = (mySymbol.FormalParameters) sym;
                 String errorString = fp.checkTypesWithMessage(paramTypes);
                 if(errorString!=null) {
-                    ErrorReport.reportError(ErrorType.TypeMismatchedException, ileft, errorString);
+                    if(errorString.split("\\s+")[0].equals("expected")){
+                        if(!(i.equals("READ") || i.equals("WRITE") || i.equals("WRITELN")))
+                            ErrorReport.reportError(ErrorType.ParameterMismatchedException, ileft, errorString);
+                        else ErrorReport.reportError(ErrorType.MissingOperatorException, ileft, errorString);
+                    }
+                    else ErrorReport.reportError(ErrorType.TypeMismatchedException, ileft, errorString);
                 }
                 break;
             }
@@ -2012,7 +2019,6 @@ class CUP$Parser$actions {
 		int e2right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e2 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
 		 
-        System.out.println("(" + e1.getCode() + ") + (" + e2.getCode() + ")");
         if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
             RESULT = new mySymbol.Expression(e1.getCode() + " + " + e2.getCode(), intType);
         } else {
@@ -2032,7 +2038,6 @@ class CUP$Parser$actions {
 		int e1right = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e1 = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
 		 
-        System.out.println("-("+e1.getCode()+")");
         if(e1.getType().getTargetType().equals(intType)) {
             RESULT = new mySymbol.Expression("-" + e1.getCode(), intType);
         } else {
