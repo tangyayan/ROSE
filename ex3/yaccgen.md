@@ -183,3 +183,59 @@ typedef int in_p;
 比如一个单词不同类型能否被设置？这里简单的一个单词只能定义一次
 
 当type是一个没定义的类型
+
+
+对部分冒号缺失的判断
+
+![1780540487539](image/yaccgen/1780540487539.png)
+
+![1780540623905](image/yaccgen/1780540623905.png)
+
+
+gcd008:
+
+![1780541710693](image/yaccgen/1780541710693.png)
+
+
+gcd014:
+
+![1780541768072](image/yaccgen/1780541768072.png)
+
+
+gcd013:
+
+![1780541848511](image/yaccgen/1780541848511.png)
+
+
+对于表达式缺少左括号不能直接匹配 `expression RPAREN` 他会在函数调用时产生移入归约冲突：
+
+```
+Warning : *** Shift/Reduce conflict found in state #135
+  between expression_list ::= expression_list COMMA expression (*)
+  and     expression ::= expression (*) RPAREN
+  under symbol RPAREN
+  Resolved in favor of shifting.
+```
+
+这是由于此时右边有括号时可能是参数调用的状态 `func(expression)` 不一定是错误，因此这样是不行的
+
+也会产生归约归约冲突
+
+```
+  between expression ::= LPAREN expression RPAREN (*)
+  and     expression ::= expression RPAREN (*)
+  under symbols: {EQ, NEQ, LEQ, LT, GEQ, GT, PLUS, MINUS, TIMES, DIV, MOD, AND, OR, RPAREN}
+  Resolved in favor of the first production.
+这是 ((expression)) 此时会选择第一条
+```
+
+这时可以使用提供的error标记，跳过数个token进行错误恢复
+
+
+
+![1780543725486](image/yaccgen/1780543725486.png)
+
+为了让一个程序识别到错误继续运行，可以返回一个error类型继续运行
+
+
+为什么expression的（还是不行？

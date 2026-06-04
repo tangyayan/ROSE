@@ -1,4 +1,4 @@
-(* Error: MissingLeftParenthesisException at line 17. *)
+(* Error: Syntactic Error at line 69. *)
 MODULE Sample;
     CONST
         N=040;
@@ -7,12 +7,13 @@ MODULE Sample;
             id: INTEGER;
             val: INTEGER
         END;
+        myint=INTEGER;
     VAR
         a: ARRAY N OF Node;
 
     (* Calculate the greatest common divisor. *)
     PROCEDURE Gcd(x,y: INTEGER; VAR ans: INTEGER);
-        VAR t: INTEGER;
+        VAR t: myint;
     BEGIN
         WHILE (y>0) DO
             t := x MOD y;
@@ -65,5 +66,5 @@ MODULE Sample;
             Gcd(x, y, ans);
             Write(ans)
         END
-    END Main;
+    END Maina;
 END Sample.

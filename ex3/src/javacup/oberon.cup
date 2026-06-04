@@ -2,15 +2,14 @@ import java_cup.runtime.*;
 import callgraph.*;
 import java.util.*;
 import exceptions.*;
+import exceptions.ErrorReport.ErrorType;
 
 parser code  {: 
     public CallGraph graph = new CallGraph();
     
-    // 延迟边：{callSiteId, calleeName, callSite} {Env} {calleeType}
+    // 延迟边：{callSiteId, calleeName, callSiteLine} {Env} {calleeType}
     // calleName global.procedure name 即为id
-    public List<String[]> pendingEdges = new ArrayList<>();
-    public List<mySymbol.Env> pendingEnvs = new ArrayList<>();
-    public List<List<mySymbol.Type>> pendingTypes = new ArrayList<>();
+    public List<PendingEdges> pendingEdges = new ArrayList<>();
     public int callSiteCounter = 0;
 
     public mySymbol.Type intType = mySymbol.PrimitiveType.INTEGER,
@@ -47,29 +46,26 @@ parser code  {:
 
     // 最终建图
     public void buildCallGraph() throws Exception {
-        int i = 0;
-        for (String[] edge : pendingEdges) {
-            mySymbol.Env calleeEnv = pendingEnvs.get(i);
-            List<mySymbol.Type> calleeParamTypes = pendingTypes.get(i++);
-            // System.out.println(edge[0] + " calls " + edge[1]);
+        for (PendingEdges edge : pendingEdges) {
+            mySymbol.Env calleeEnv = edge.getCallerEnv();
+            List<mySymbol.Type> calleeParamTypes = edge.getParamTypes();
+            String calleeName = edge.getCalleeName();
+            int callSiteLine = edge.getCallSiteLine();
+            String callSiteId = edge.getCallSiteId();
             while(calleeEnv != null) {
                 String EnvName = calleeEnv.toString();
-                mySymbol.TableSymbol sym = calleeEnv.lookupLocal(edge[1]);
+                mySymbol.TableSymbol sym = calleeEnv.lookupLocal(calleeName);
                 if(sym != null && sym.getKind().equals("FORMALPARAMETERS")) {
                     mySymbol.FormalParameters fp = (mySymbol.FormalParameters) sym;
-                    // if(!fp.checkTypes(calleeParamTypes)) {
-                    //     report_error("Type mismatch in call to " + edge[1] + " at call site " + edge[0], null);
-                    // }
                     String errorString = fp.checkTypesWithMessage(calleeParamTypes);
                     if(errorString!=null) {
-                        report_error("Call site " + edge[2] + " calls " + edge[1] + ": " + errorString, null);
+                        ErrorReport.reportError(ErrorType.TypeMismatchedException, callSiteLine, errorString);
                     }
-                    graph.addEdge(edge[0], EnvName + "." + edge[1]);
+                    graph.addEdge(callSiteId, EnvName + "." + calleeName);
                     break;
                 }
                 calleeEnv = calleeEnv.getFather();
             }
-            // graph.addEdge(edge[0], edge[1]);
         }
         graph.show();
     }
@@ -227,6 +223,9 @@ var_decl ::=
 /* procedure */
 procedure_part ::=
       procedure_part procedure_declaration SEMI
+    | procedure_part procedure_declaration:pp {: 
+        ErrorReport.reportError(ErrorType.SyntacticException, ppright, "Missing semicolon after procedure declaration"); 
+    :}
     | /* empty */
     ;
 
@@ -241,7 +240,7 @@ procedure_body ::=
         mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
         // System.out.println("Exiting procedure: " + currentEnv.getScopeName());
         if(!currentEnv.getScopeName().equals(i)) {
-          report_fatal_error("Procedure name mismatch: expected " + currentEnv.getScopeName() + " but found " + i, null);
+            ErrorReport.reportError(ErrorType.SyntacticException, ileft, "Procedure name mismatch, expected " + currentEnv.getScopeName() + " but found " + i);
         }
         mySymbol.Env.exitEnv(); 
     :}
@@ -312,12 +311,12 @@ type ::=
         mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
         mySymbol.TableSymbol sym = currentEnv.lookup(i);
         if (sym == null) {
-            report_error("Undefined type: " + i, null);
+            ErrorReport.reportError(ErrorType.SemanticException, ileft, "Undefined type \"" + i + "\"");
             RESULT = errorType;
         } else if (sym instanceof mySymbol.Type) {
             RESULT = (mySymbol.Type) sym;
         } else {
-            report_error("Identifier " + i + " is not a type", null);
+            ErrorReport.reportError(ErrorType.SemanticException, ileft, "Identifier \"" + i + "\" does not denote a type");
             RESULT = errorType;
         }
     :}
@@ -438,14 +437,9 @@ procedure_call ::=
             EnvName = calleeEnv.toString();
             if(sym != null && sym.getKind().equals("FORMALPARAMETERS")) {
                 mySymbol.FormalParameters fp = (mySymbol.FormalParameters) sym;
-                // if(!fp.checkTypes(paramTypes)) {
-                //     report_error(
-                //         "Type mismatch in call to " + i + " at call site " + siteCode + " at line " + ileft + ", column " + iright,
-                //         null);
-                // }
                 String errorString = fp.checkTypesWithMessage(paramTypes);
                 if(errorString!=null) {
-                    report_error("Call site " + siteCode + " at line " + ileft + ", column " + iright + ": " + errorString, null);
+                    ErrorReport.reportError(ErrorType.TypeMismatchedException, ileft, errorString);
                 }
                 break;
             }
@@ -460,9 +454,13 @@ procedure_call ::=
             parser.graph.addCallSite(callSiteId, CallSiteName, siteCode.toString());
             
             if(calleeEnv==null) {
-                parser.pendingEdges.add(new String[]{ callSiteId, i, siteCode.toString() });
-                parser.pendingEnvs.add(mySymbol.Env.getCurrentEnv());
-                parser.pendingTypes.add(paramTypes);
+                parser.pendingEdges.add(
+                    new PendingEdges(callSiteId, mySymbol.Env.getCurrentEnv(),
+                    ileft, paramTypes, i)
+                );
+                // parser.pendingEdges.add(new String[]{ callSiteId, i, ileft });
+                // parser.pendingEnvs.add(mySymbol.Env.getCurrentEnv());
+                // parser.pendingTypes.add(paramTypes);
             }
             else {
                 parser.graph.addEdge(callSiteId, EnvName + "." + i);
@@ -473,6 +471,15 @@ procedure_call ::=
 
 actual_parameters_opt ::=
       LPAREN expression_list_opt:el RPAREN {: RESULT = el; :}
+    | LPAREN:l expression_list_opt:el {:
+        ErrorReport.reportError(ErrorType.MissingRightParenthesisException, lleft, 
+            "in procedure call");
+        RESULT = el;
+    :}
+    | error RPAREN:r {:
+        ErrorReport.reportError(ErrorType.MissingLeftParenthesisException, rleft, 
+            "in procedure call");
+    :}
     | /* empty */          {: RESULT = new ArrayList<>(); :}
     ;
 
@@ -496,7 +503,7 @@ assignment ::=
         mySymbol.TableSymbol now_sym = currentEnv.lookup(id);
         mySymbol.Type currentType;
         if(now_sym == null) {
-            report_error("Undefined identifier: " + id + ",at line " + idleft + ",column" + idright, null);
+            ErrorReport.reportError(ErrorType.SemanticException, idleft, "Undefined identifier \"" + id + "\"");
             currentType = errorType;
         } else if (now_sym.getKind().equals("VAR")) {
             mySymbol.Var varSym = (mySymbol.Var) now_sym;
@@ -506,7 +513,7 @@ assignment ::=
             currentType = constSym.getType();
         } 
         else { // 函数调用不应该出现在表达式中
-            report_error("Identifier " + id + " is not a variable or constant", null);
+            ErrorReport.reportError(ErrorType.SemanticException, idleft, "Identifier \"" + id + "\" is not a variable or constant");
             currentType = errorType;
         } 
 
@@ -518,7 +525,8 @@ assignment ::=
                 }
                 if(node.isFieldSelector()){
                     if(!(currentType instanceof mySymbol.RecordType)){
-                        report_error("Field selector applied to non-record type", null);
+                        ErrorReport.reportError(ErrorType.SemanticException, sleft,
+                            "Field selector applied to non-record type");
                         currentType = errorType;
                         break;
                     }
@@ -526,7 +534,8 @@ assignment ::=
                     String fieldName = node.getFieldName();
                     mySymbol.Parameter field = record.getField(fieldName);
                     if(field == null){
-                        report_error("Undefined field " + fieldName,null);
+                        ErrorReport.reportError(ErrorType.SemanticException, sleft,
+                            "Undefined field \"" + fieldName + "\" in record type");
                         currentType = errorType;
                         break;
                     }
@@ -534,7 +543,8 @@ assignment ::=
                 }
                 else { // index selector
                     if(!(currentType instanceof mySymbol.ArrayType)){
-                        report_error("Index selector applied to non-array type", null);
+                        ErrorReport.reportError(ErrorType.SemanticException, sleft,
+                            "Index selector applied to non-array type");
                         currentType = errorType;
                         break;
                     }
@@ -544,7 +554,8 @@ assignment ::=
             }
             if(!currentType.getTargetType().equals(e.getType().getTargetType()))
             {
-                report_error("Type mismatch in assignment: cannot assign " + e.getType().getTypeName() + " to " + currentType.getTypeName(), null);
+                ErrorReport.reportError(ErrorType.TypeMismatchedException, idleft, 
+                    "in assignment, cannot assign " + e.getType().getTypeName() + " to " + currentType.getTypeName());
             }
         }
     :}
@@ -709,6 +720,7 @@ expression ::= 	  INTEGER:i INTEGER 	{:	if (true)	throw new MissingOperatorExcep
 
 		| LPAREN expression:e RPAREN	{:	RESULT = e;	:}
 		| LPAREN RPAREN{:		if (true)	throw new MissingOperandException();		:}
+        | error RPAREN:r {:		if (true)	throw new MissingLeftParenthesisException(rleft, rright);     :}
 
 		| IDENTIFIER:id selector: s
 		{:
@@ -716,7 +728,7 @@ expression ::= 	  INTEGER:i INTEGER 	{:	if (true)	throw new MissingOperatorExcep
             mySymbol.TableSymbol now_sym = currentEnv.lookup(id);
             mySymbol.Type currentType;
             if(now_sym == null) {
-                report_error("Undefined identifier: " + id + ",at line " + idleft + ",column" + idright, null);
+                ErrorReport.reportError(ErrorType.SemanticException, idleft, "Undefined identifier \"" + id + "\"");
                 currentType = errorType;
             } else if (now_sym.getKind().equals("VAR")) {
                 mySymbol.Var varSym = (mySymbol.Var) now_sym;
@@ -726,7 +738,7 @@ expression ::= 	  INTEGER:i INTEGER 	{:	if (true)	throw new MissingOperatorExcep
                 currentType = constSym.getType();
             } 
             else { // 函数调用不应该出现在表达式中
-                report_error("Identifier " + id + " is not a variable or constant", null);
+                ErrorReport.reportError(ErrorType.SemanticException, idleft, "Identifier \"" + id + "\" is not a variable or constant");
                 currentType = errorType;
             } 
 
@@ -739,7 +751,8 @@ expression ::= 	  INTEGER:i INTEGER 	{:	if (true)	throw new MissingOperatorExcep
                         }
                         if(node.isFieldSelector()){
                             if(!(currentType instanceof mySymbol.RecordType)){
-                                report_error("Field selector applied to non-record type", null);
+                                ErrorReport.reportError(ErrorType.SemanticException, sleft,
+                                    "Field selector applied to non-record type");
                                 currentType = errorType;
                                 break;
                             }
@@ -747,7 +760,8 @@ expression ::= 	  INTEGER:i INTEGER 	{:	if (true)	throw new MissingOperatorExcep
                             String fieldName = node.getFieldName();
                             mySymbol.Parameter field = record.getField(fieldName);
                             if(field == null){
-                                report_error("Undefined field " + fieldName,null);
+                                ErrorReport.reportError(ErrorType.SemanticException, sleft,
+                                    "Undefined field \"" + fieldName + "\" in record type");
                                 currentType = errorType;
                                 break;
                             }
@@ -755,7 +769,8 @@ expression ::= 	  INTEGER:i INTEGER 	{:	if (true)	throw new MissingOperatorExcep
                         }
                         else { // index selector
                             if(!(currentType instanceof mySymbol.ArrayType)){
-                                report_error("Index selector applied to non-array type", null);
+                                ErrorReport.reportError(ErrorType.SemanticException, sleft,
+                                    "Index selector applied to non-array type");
                                 currentType = errorType;
                                 break;
                             }
@@ -763,10 +778,6 @@ expression ::= 	  INTEGER:i INTEGER 	{:	if (true)	throw new MissingOperatorExcep
                         }
                     }
                     code += s.getCode();
-                }
-                if(!currentType.isPrimitiveType()) {
-                    throw new TypeMismatchedException(idleft, idright);
-                    // 目前仅支持基本类型的变量参与表达式计算
                 }
                 RESULT = new mySymbol.Expression(code, currentType);
             }
