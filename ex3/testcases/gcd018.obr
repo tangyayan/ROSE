@@ -1,4 +1,4 @@
-(* Error: MissingOperatorException at line 33. *)
+(* Error: TypeMismatchedException at line 33. *)
 MODULE Sample;
     CONST
         N=040;
@@ -7,12 +7,13 @@ MODULE Sample;
             id: INTEGER;
             val: INTEGER
         END;
+        myint=INTEGER;
     VAR
         a: ARRAY N OF Node;
 
     (* Calculate the greatest common divisor. *)
     PROCEDURE Gcd(x,y: INTEGER; VAR ans: INTEGER);
-        VAR t: INTEGER;
+        VAR t: myint;
     BEGIN
         WHILE (y>0) DO
             t := x MOD y;
@@ -29,8 +30,8 @@ MODULE Sample;
         Read(n);
         i := 0;
         WHILE ~(i >= n) & n<N DO
-            Read(a[i].id); Read(a[i].val);
-            i := i + 1 1
+            Read(a[i>2].id); Read(a[i].val);
+            i := i + 1
         END;
         Read(x);
 

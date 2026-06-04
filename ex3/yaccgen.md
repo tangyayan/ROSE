@@ -239,3 +239,13 @@ Warning : *** Shift/Reduce conflict found in state #135
 
 
 为什么expression的（还是不行？
+
+
+gcd010:
+
+![1780545298596](image/yaccgen/1780545298596.png)
+
+
+gcd018：
+
+![1780545711473](image/yaccgen/1780545711473.png)

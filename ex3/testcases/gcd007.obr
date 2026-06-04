@@ -1,4 +1,4 @@
-(* Error: MissingLeftParenthesisException at line 17. *)
+(* Error: MissingLeftParenthesisException at line 65. *)
 MODULE Sample;
     CONST
         N=040;
@@ -62,7 +62,7 @@ MODULE Sample;
         IF x<0 OR y<0 THEN  
             Write(-1)
         ELSE
-            Gcd(x, y, ans);
+            Gcd x, y, ans);
             Write(ans)
         END
     END Main;

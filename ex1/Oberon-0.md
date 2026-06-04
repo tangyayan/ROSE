@@ -81,11 +81,11 @@ OberonException
   * 正常写法：`Write(a[ans].id)`
   * 变异写法：`Write(a[ans].id`
 * 007：缺少左括号
-  * 正常写法：`WHILE (y>0) DO`
-  * 变异写法：`WHILE y>0) DO`
+  * 正常写法：`Gcd (x, y, ans);`
+  * 变异写法：`Gcd x, y, ans);`
 * 009：缺少运算符
-  * 正常写法：`t := x MOD y;`
-  * 变异写法：`t := x  y;`
+  * 正常写法：`i := i + 1`
+  * 变异写法：`i := i + 1 1`
 * 015：缺少运算符（预定义函数缺少参数）
   * 正常写法：`Read(x);`
   * 变异写法：`Read();`
@@ -110,6 +110,9 @@ OberonException
 * 014：函数参数数量不一致
   * 正常写法：`Gcd(x, y, ans);`
   * 变异写法：`Gcd(x, y);`
+* 018：数组索引类型不正确
+  * 正常写法：`Read(a[i].id); Read(a[i].val);`
+  * 变异写法：`Read(a[i>2].id); Read(a[i].val);`
 
 ## 1.3 讨论Oberon-0 语言的特点
 
