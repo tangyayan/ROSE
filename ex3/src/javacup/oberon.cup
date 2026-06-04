@@ -66,6 +66,9 @@ parser code  {:
                 }
                 calleeEnv = calleeEnv.getFather();
             }
+            if(calleeEnv == null) {
+                ErrorReport.reportError(ErrorType.SemanticException, callSiteLine, "Undefined procedure \"" + calleeName + "\"");
+            }
         }
         if(is_show) graph.show();
     }
@@ -148,8 +151,8 @@ module ::=
     END IDENTIFIER:i2 DOT {: 
         mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
         if (!currentEnv.getScopeName().equals(i2)) {
-            report_fatal_error("Module name mismatch: expected " 
-                + currentEnv.getScopeName() + " but found " + i2, null);
+            ErrorReport.reportError(ErrorType.SyntacticException, i2right, "Module name mismatch: expected " 
+                + currentEnv.getScopeName() + " but found " + i2);
         }
         mySymbol.Env.exitEnv();
     :}
@@ -391,21 +394,33 @@ statement ::=
     ;
 
 while_statement ::=
-    WHILE expression DO
+    WHILE expression:e DO {:
+        if (!e.getType().getTargetType().equals(boolType)) {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, eleft, "Condition expression in WHILE statement must be BOOLEAN");
+        }
+     :}
     statement_sequence
     END
     ;
 
 if_statement ::=
-    IF expression THEN
+    IF expression:e THEN {:
+        if (!e.getType().getTargetType().equals(boolType)) {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, eleft, "Condition expression in IF statement must be BOOLEAN");
+        }
+    :}
     statement_sequence
     elsif_list
     else_opt
-    END {: /*System.out.println("End of if statement");*/ :}
+    END
     ;
 
 elsif_list ::=
-      elsif_list ELSIF expression THEN statement_sequence
+      elsif_list ELSIF expression:e THEN statement_sequence {:
+        if (!e.getType().getTargetType().equals(boolType)) {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, eleft, "Condition expression in ELSIF clause must be BOOLEAN");
+        }
+    :}
     | /* empty */
     ;
 
