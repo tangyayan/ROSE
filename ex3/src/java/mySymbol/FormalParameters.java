@@ -91,13 +91,29 @@ public class FormalParameters implements TableSymbol {
      * @param argTypes
      * @return null if matches, error message otherwise
      */
-    public String checkTypesWithMessage(List<Type> argTypes) {
-        if (argTypes.size() != parameterList.size()) {
-            return "expected " + parameterList.size() + ", got " + argTypes.size();
+    // public String checkTypesWithMessage(List<Type> argTypes) {
+    //     if (argTypes.size() != parameterList.size()) {
+    //         return "expected " + parameterList.size() + ", got " + argTypes.size();
+    //     }
+    //     for (int i = 0; i < argTypes.size(); i++) {
+    //         if (!argTypes.get(i).equals(parameterList.get(i).getType())) {
+    //             return "For parameter \"" + parameterList.get(i).getName() + "\", expected " + parameterList.get(i).getType() + ", got " + argTypes.get(i);
+    //         }
+    //     }
+    //     return null; // No mismatch
+    // }
+    public String checkTypesWithMessage(List<Expression> args) {
+        if (args.size() != parameterList.size()) {
+            return "expected " + parameterList.size() + ", got " + args.size();
         }
-        for (int i = 0; i < argTypes.size(); i++) {
-            if (!argTypes.get(i).equals(parameterList.get(i).getType())) {
-                return "For parameter \"" + parameterList.get(i).getName() + "\", expected " + parameterList.get(i).getType() + ", got " + argTypes.get(i);
+        for (int i = 0; i < args.size(); i++) {
+            if (!args.get(i).getType().equals(parameterList.get(i).getType())) {
+                return "For parameter \"" + parameterList.get(i).getName() + "\", expected " + parameterList.get(i).getType() + 
+                    ", got " + args.get(i).getType();
+            }
+            if(parameterList.get(i).isVar() && !args.get(i).isLValue()) {
+                return "For VAR parameter \"" + parameterList.get(i).getName() + 
+                    "\", expected an l-value, but got an expression that is not an l-value";
             }
         }
         return null; // No mismatch

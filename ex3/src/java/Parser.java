@@ -639,8 +639,8 @@ public class Parser extends java_cup.runtime.lr_parser {
         
         mySymbol.Parameter readParam = new mySymbol.Parameter("value", intType, true);
         mySymbol.Parameter writeParam = new mySymbol.Parameter("value", intType, false);
-        mySymbol.Env.addSymbol_s("WRITE", new mySymbol.FormalParameters(readParam));
-        mySymbol.Env.addSymbol_s("READ", new mySymbol.FormalParameters(writeParam));
+        mySymbol.Env.addSymbol_s("WRITE", new mySymbol.FormalParameters(writeParam));
+        mySymbol.Env.addSymbol_s("READ", new mySymbol.FormalParameters(readParam));
         mySymbol.Env.addSymbol_s("WRITELN", new mySymbol.FormalParameters());
     }
 
@@ -648,7 +648,7 @@ public class Parser extends java_cup.runtime.lr_parser {
     public void buildCallGraph(boolean is_show) throws Exception {
         for (PendingEdges edge : pendingEdges) {
             mySymbol.Env calleeEnv = edge.getCallerEnv();
-            List<mySymbol.Type> calleeParamTypes = edge.getParamTypes();
+            List<mySymbol.Expression> calleeParam = edge.getParams();
             String calleeName = edge.getCalleeName();
             int callSiteLine = edge.getCallSiteLine();
             String callSiteId = edge.getCallSiteId();
@@ -657,7 +657,7 @@ public class Parser extends java_cup.runtime.lr_parser {
                 mySymbol.TableSymbol sym = calleeEnv.lookupLocal(calleeName);
                 if(sym != null && sym.getKind().equals("FORMALPARAMETERS")) {
                     mySymbol.FormalParameters fp = (mySymbol.FormalParameters) sym;
-                    String errorString = fp.checkTypesWithMessage(calleeParamTypes);
+                    String errorString = fp.checkTypesWithMessage(calleeParam);
                     if(errorString!=null) {
                         if(errorString.split("\\s+")[0].equals("expected"))
                             ErrorReport.reportError(ErrorType.ParameterMismatchedException, callSiteLine, errorString);
@@ -1515,12 +1515,7 @@ class CUP$Parser$actions {
 		int apleft = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
 		int apright = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		List<mySymbol.Expression> ap = (List<mySymbol.Expression>)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
-		 
-        // 获取实参类型列表
-        List<mySymbol.Type> paramTypes = new ArrayList<>();
-        if (ap != null)
-            for (mySymbol.Expression arg : ap) paramTypes.add(arg.getType());
-
+		
         // 生成调用代码字符串，如 foo(x, y+1, 2)
         StringBuilder siteCode = new StringBuilder(i + "(");
         if (ap != null) {
@@ -1538,7 +1533,7 @@ class CUP$Parser$actions {
             EnvName = calleeEnv.toString();
             if(sym != null && sym.getKind().equals("FORMALPARAMETERS")) {
                 mySymbol.FormalParameters fp = (mySymbol.FormalParameters) sym;
-                String errorString = fp.checkTypesWithMessage(paramTypes);
+                String errorString = fp.checkTypesWithMessage(ap);
                 if(errorString!=null) {
                     if(errorString.split("\\s+")[0].equals("expected")){
                         if(!(i.equals("READ") || i.equals("WRITE") || i.equals("WRITELN")))
@@ -1562,11 +1557,8 @@ class CUP$Parser$actions {
             if(calleeEnv==null) {
                 parser.pendingEdges.add(
                     new PendingEdges(callSiteId, mySymbol.Env.getCurrentEnv(),
-                    ileft, paramTypes, i)
+                    ileft, ap, i)
                 );
-                // parser.pendingEdges.add(new String[]{ callSiteId, i, ileft });
-                // parser.pendingEnvs.add(mySymbol.Env.getCurrentEnv());
-                // parser.pendingTypes.add(paramTypes);
             }
             else {
                 parser.graph.addEdge(callSiteId, EnvName + "." + i);
@@ -1691,11 +1683,16 @@ class CUP$Parser$actions {
 		int eright = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
 		mySymbol.Expression e = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
 		
-        mySymbol.Type isType = is.getType();
-        if(!isType.getTargetType().equals(e.getType().getTargetType()))
-        {
-            ErrorReport.reportError(ErrorType.TypeMismatchedException, isleft, 
-                "in assignment, cannot assign " + e.getType().getTypeName() + " to " + isType.getTypeName());
+        if(!is.isLValue()) {
+            ErrorReport.reportError(ErrorType.SemanticException, isleft, "Left-hand side of assignment must be a variable");
+        }
+        else {
+            mySymbol.Type isType = is.getType();
+            if(!isType.getTargetType().equals(e.getType().getTargetType()))
+            {
+                ErrorReport.reportError(ErrorType.TypeMismatchedException, isleft, 
+                    "in assignment, cannot assign " + e.getType().getTypeName() + " to " + isType.getTypeName());
+            }
         }
     
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("assignment",30, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-2)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
@@ -2581,12 +2578,14 @@ class CUP$Parser$actions {
         mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
         mySymbol.TableSymbol now_sym = currentEnv.lookup(id);
         mySymbol.Type currentType;
+        boolean isLValue = false;
         if(now_sym == null) {
             ErrorReport.reportError(ErrorType.SemanticException, idleft, "Undefined identifier \"" + id + "\"");
             currentType = errorType;
         } else if (now_sym.getKind().equals("VAR")) {
             mySymbol.Var varSym = (mySymbol.Var) now_sym;
             currentType = varSym.getType();
+            isLValue = true;
         } else if (now_sym.getKind().equals("CONST")) {
             mySymbol.Const constSym = (mySymbol.Const) now_sym;
             currentType = constSym.getType();
@@ -2633,7 +2632,7 @@ class CUP$Parser$actions {
                 }
                 code += s.getCode();
             }
-            RESULT = new mySymbol.Expression(code, currentType);
+            RESULT = new mySymbol.Expression(code, currentType, isLValue);
         }
         else RESULT = new mySymbol.Expression(id, currentType);
     

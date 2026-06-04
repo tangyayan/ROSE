@@ -1,20 +1,21 @@
 import mySymbol.Env;
 import mySymbol.Type;
+import mySymbol.Expression;
 import java.util.List;
 
 public class PendingEdges {
     String callSiteId;
     Env callerEnv;
     int callSiteLine;
-    List<Type> paramTypes;
+    List<Expression> params;
 
     String calleeName;
 
-    public PendingEdges(String callSiteId, Env callerEnv, int callSiteLine, List<Type> paramTypes, String calleeName) {
+    public PendingEdges(String callSiteId, Env callerEnv, int callSiteLine, List<Expression> params, String calleeName) {
         this.callSiteId = callSiteId;
         this.callerEnv = callerEnv;
         this.callSiteLine = callSiteLine;
-        this.paramTypes = paramTypes;
+        this.params = params;
         this.calleeName = calleeName;
     }
 
@@ -30,8 +31,8 @@ public class PendingEdges {
         return callSiteLine;
     }
 
-    public List<Type> getParamTypes() {
-        return paramTypes;
+    public List<Expression> getParams() {
+        return params;
     }
 
     public String getCalleeName() {

@@ -113,9 +113,15 @@ OberonException
 * 018：数组索引类型不正确
   * 正常写法：`Read(a[i].id); Read(a[i].val);`
   * 变异写法：`Read(a[i>2].id); Read(a[i].val);`
-* 019: if/while判断语句不为bool类型
+* 019:：if/while判断语句不为bool类型
   * 正常写法：`WHILE l<=r DO`
   * 变异写法：`WHILE l DO`
+* 020：赋值语句左表达式必须为左值
+  * 正常写法：`i:= 0;`
+  * 变异写法：`tmp := 0;`
+* 021：对于预定义函数和自定义函数，可变参数必须为左值
+  * 正常写法：`Read(a[i].id); Read(a[i].val); Gcd(x, y, ans);`
+  * 变异写法：`Read(a[i].id+2); Read(a[i].val); Gcd(x, y, ans+1);`
 
 ## 1.3 讨论Oberon-0 语言的特点
 
