@@ -60,7 +60,7 @@ MODULE Sample;
         VAR b: BOOLEAN;
     BEGIN
         Read(x); Read(y);
-        IF x<0 OR y<0 THEN  
+        IF (x<0) OR (y<0) THEN  
             Write(-1)
         ELSE
             b := (x=0);

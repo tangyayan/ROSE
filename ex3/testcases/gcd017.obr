@@ -29,7 +29,7 @@ MODULE Sample;
     BEGIN
         Read(n);
         i := 0;
-        WHILE ~(i >= n) & n<N DO
+        WHILE ~(i >= n) & (n<N) DO
             Read(a[i]); Read(n[i].val);
             i := i + 1
         END;
@@ -60,7 +60,7 @@ MODULE Sample;
         VAR x,y,ans: INTEGER;
     BEGIN
         Read(x); Read(y);
-        IF x<0 OR y<0 THEN  
+        IF (x<0) OR (y<0) THEN  
             Write(-1)
         ELSE
             Gcd(x, y, ans);
