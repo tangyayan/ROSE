@@ -93,11 +93,11 @@ public class FormalParameters implements TableSymbol {
      */
     public String checkTypesWithMessage(List<Type> argTypes) {
         if (argTypes.size() != parameterList.size()) {
-            return "Parameter mismatched: expected " + parameterList.size() + ", got " + argTypes.size();
+            return "expected " + parameterList.size() + ", got " + argTypes.size();
         }
         for (int i = 0; i < argTypes.size(); i++) {
             if (!argTypes.get(i).equals(parameterList.get(i).getType())) {
-                return "Type mismatch for parameter " + parameterList.get(i).getName() + ": expected " + parameterList.get(i).getType() + ", got " + argTypes.get(i);
+                return "For parameter \"" + parameterList.get(i).getName() + "\", expected " + parameterList.get(i).getType() + ", got " + argTypes.get(i);
             }
         }
         return null; // No mismatch

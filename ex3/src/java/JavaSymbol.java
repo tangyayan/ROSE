@@ -4,12 +4,12 @@ public class JavaSymbol extends java_cup.runtime.Symbol {
   
     public JavaSymbol(int type, int line, int column) {
       // this(type, line, column, -1, -1, null);
-      this(type, line, column, line, column, null);
+      this(type, line, column, line, line, null); // 只保存行号
     }
   
     public JavaSymbol(int type, int line, int column, Object value) {
       // this(type, line, column, -1, -1, value);
-      this(type, line, column, line, column, value);
+      this(type, line, column, line, line, value);
     }
   
     public JavaSymbol(int type, int line, int column, int left, int right, Object value) {
