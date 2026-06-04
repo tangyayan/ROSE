@@ -279,6 +279,11 @@ formal_parameters ::=
         }
         RESULT = fp;
      :}
+    | error RPAREN:r {:
+        ErrorReport.reportError(ErrorType.MissingLeftParenthesisException, rleft, 
+            "in formal parameter list");
+        RESULT = new mySymbol.FormalParameters();
+    :}
     ;
 
 fp_section_list_opt ::=

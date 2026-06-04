@@ -207,7 +207,7 @@ gcd013:
 ![1780541848511](image/yaccgen/1780541848511.png)
 
 
-对于表达式缺少左括号不能直接匹配 `expression RPAREN` 他会在函数调用时产生移入归约冲突：
+对于**actual_parameters**缺少左括号不能直接匹配 `expression RPAREN` 他会在函数调用时产生移入归约冲突：
 
 ```
 Warning : *** Shift/Reduce conflict found in state #135
@@ -217,20 +217,36 @@ Warning : *** Shift/Reduce conflict found in state #135
   Resolved in favor of shifting.
 ```
 
-这是由于此时右边有括号时可能是参数调用的状态 `func(expression)` 不一定是错误，因此这样是不行的
+这是由于此时右边有括号时可能是参数调用的状态 `func(expression)` 不一定是错误，因此这样是不行的，但我们可以使用error进行错误恢复
 
-也会产生归约归约冲突
+对于缺少右括号，匹配错误模式 `LPAREN:l expression_list_opt:el`，由于函数调用是一行的，他的右边第一个符号一定是;因此该判断是有效的
+
+
+对于表达式：
+
+只能判断缺少左括号（用error）
+
+对于右括号：
+
+产生归约归约冲突
 
 ```
   between expression ::= LPAREN expression RPAREN (*)
   and     expression ::= expression RPAREN (*)
   under symbols: {EQ, NEQ, LEQ, LT, GEQ, GT, PLUS, MINUS, TIMES, DIV, MOD, AND, OR, RPAREN}
   Resolved in favor of the first production.
-这是 ((expression)) 此时会选择第一条
 ```
 
-这时可以使用提供的error标记，跳过数个token进行错误恢复
+`((expression)) ` 可以看到这种情况会发生冲突（LALR只看一个导致的）
 
+
+**formal_parameters：**
+
+只能判断缺少左侧括号，同样用error判断
+
+如果判断缺少右侧括号比较麻烦，由于formal是按;来分割的，并且formal最右边也会有；，这会导致移入归约冲突（只看到一个；不知道是右边还有parameters list还是缺少右括号）
+
+比如 `fun(a,b:INTEGER;c:INTEGER);`
 
 
 ![1780543725486](image/yaccgen/1780543725486.png)
@@ -249,3 +265,8 @@ gcd010:
 gcd018：
 
 ![1780545711473](image/yaccgen/1780545711473.png)
+
+
+申明函数缺少右括号：`PROCEDURE BinSearch)`
+
+![1780546965085](image/yaccgen/1780546965085.png)
