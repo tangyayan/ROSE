@@ -2372,8 +2372,11 @@ class CUP$Parser$actions {
           case 111: // expression ::= NOT 
             {
               mySymbol.Expression RESULT =null;
+		int nleft = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).left;
+		int nright = ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()).right;
+		Object n = (Object)((java_cup.runtime.Symbol) CUP$Parser$stack.peek()).value;
 		 
-        ErrorReport.reportError(ErrorType.MissingOperandException, NOTleft, "Missing operand for 'NOT'");
+        ErrorReport.reportError(ErrorType.MissingOperandException, nleft, "Missing operand for 'NOT'");
         RESULT = new mySymbol.Expression("ERROR", errorType);
       
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
@@ -2417,8 +2420,11 @@ class CUP$Parser$actions {
           case 114: // expression ::= LPAREN RPAREN 
             {
               mySymbol.Expression RESULT =null;
+		int lleft = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).left;
+		int lright = ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)).right;
+		Object l = (Object)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
 		 
-        ErrorReport.reportError(ErrorType.MissingOperandException, LPARENleft, "Empty parentheses");
+        ErrorReport.reportError(ErrorType.MissingOperandException, lleft, "Empty parentheses");
         RESULT = new mySymbol.Expression("ERROR", errorType);
       
               CUP$Parser$result = parser.getSymbolFactory().newSymbol("expression",36, ((java_cup.runtime.Symbol)CUP$Parser$stack.elementAt(CUP$Parser$top-1)), ((java_cup.runtime.Symbol)CUP$Parser$stack.peek()), RESULT);
@@ -2558,7 +2564,7 @@ class CUP$Parser$actions {
 		mySymbol.Expression e = (mySymbol.Expression)((java_cup.runtime.Symbol) CUP$Parser$stack.elementAt(CUP$Parser$top-1)).value;
 		
         if(!e.getType().getTargetType().equals(intType)) {
-            throw new TypeMismatchedException(eleft, eright);
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, eleft, "Array index must be of type INTEGER");
         }
         RESULT = s;
         RESULT.addIndexSelector(e.getCode());

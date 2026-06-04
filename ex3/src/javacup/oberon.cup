@@ -565,162 +565,280 @@ assignment ::=
    Expressions
    =========================== */
 
-expression ::= 	  INTEGER:i INTEGER 	{:	if (true)	throw new MissingOperatorException(ileft, iright);	:}
-		| EQ expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 EQ		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 EQ expression:e2
-		{: 
-            if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " = " + e2.getCode(), boolType);
-            }
-            else throw new TypeMismatchedException();
-		:}
+expression ::= 	  
+      INTEGER:i INTEGER {: 
+        ErrorReport.reportError(ErrorType.MissingOperatorException, ileft, "Missing operator between two integers"); 
+        RESULT = new mySymbol.Expression(i.toString(), intType);
+      :}
 
-		| NEQ expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 NEQ		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 NEQ expression:e2
-		{:
-            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " != " + e2.getCode(), boolType);
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* Comparison - EQ */
+      | EQ expression:e1 {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1left, "Missing left operand for '='");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 EQ {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for '='");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 EQ expression:e2 {: 
+        if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " = " + e2.getCode(), boolType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in '=': expected INTEGER");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
 
-		| LEQ expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 LEQ		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 LEQ expression:e2
-		{:
-            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " <= " + e2.getCode(), boolType);
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* Comparison - NEQ */
+      | NEQ expression:e1 {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1left, "Missing left operand for '#'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 NEQ {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for '#'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 NEQ expression:e2 {: 
+        if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " != " + e2.getCode(), boolType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in '#': expected INTEGER");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
 
-		| LT expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 LT		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 LT expression:e2
-		{:
-            // System.out.println("LT operation: " + e1.getCode() + " < " + e2.getCode());
-            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " < " + e2.getCode(), boolType);
-            }
-            else throw new TypeMismatchedException();
-		:}
-		| GEQ expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 GEQ		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 GEQ expression:e2
-		{:
-            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " >= " + e2.getCode(), boolType);
-            }
-            else throw new TypeMismatchedException(e1left, e1right);
-		:}
+      /* Comparison - LEQ */
+      | LEQ expression:e1 {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1left, "Missing left operand for '<='");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 LEQ {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for '<='");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 LEQ expression:e2 {: 
+        if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " <= " + e2.getCode(), boolType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in '<=': expected INTEGER");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
 
-		| GT expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 GT		{:	if (true)	throw new MissingOperandException();	:}
-		|expression:e1 GT expression:e2
-		{:
-            // System.out.println("GT operation: " + e1.getCode() + " > " + e2.getCode());
-            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " > " + e2.getCode(), boolType);
-            }
-            else throw new TypeMismatchedException(e1left, e1right);
-		:}
-		
-		
-		| PLUS expression:e1 {:	
-            if (e1.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression("+" + e1.getCode(), intType);
-            }
-            else throw new TypeMismatchedException();
-        :}
-		| expression:e1 PLUS		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 PLUS expression:e2 
-		{:
-            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " + " + e2.getCode(), intType);
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* Comparison - LT */
+      | LT expression:e1 {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1left, "Missing left operand for '<'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 LT {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for '<'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 LT expression:e2 {: 
+        if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " < " + e2.getCode(), boolType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in '<': expected INTEGER");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
 
-		| MINUS expression:e1 {:	
-            if (e1.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression("-" + e1.getCode(), intType);
-            }
-            else throw new TypeMismatchedException();
-        :}
-		| expression:e1 MINUS		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 MINUS expression:e2 
-		{:
-            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " - " + e2.getCode(), intType);
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* Comparison - GEQ */
+      | GEQ expression:e1 {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1left, "Missing left operand for '>='");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 GEQ {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for '>='");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 GEQ expression:e2 {: 
+        if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " >= " + e2.getCode(), boolType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in '>=': expected INTEGER");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
 
-		| TIMES expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 TIMES		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 TIMES expression:e2 
-		{:
-            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " * " + e2.getCode(), intType);
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* Comparison - GT */
+      | GT expression:e1 {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1left, "Missing left operand for '>'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 GT {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for '>'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 GT expression:e2 {: 
+        if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " > " + e2.getCode(), boolType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in '>': expected INTEGER");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
 
-		| DIV expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 DIV		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 DIV expression:e2 
-		{:
-            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " / " + e2.getCode(), intType);
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* Arithmetic - PLUS (unary & binary) */
+      | PLUS expression:e1 {: 
+        if(e1.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression("+" + e1.getCode(), intType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Unary '+' requires INTEGER operand");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
+      | expression:e1 PLUS {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for '+'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 PLUS expression:e2 {: 
+        if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " + " + e2.getCode(), intType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in '+': expected INTEGER");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
 
-		| MOD expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 MOD		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 MOD expression:e2 
-		{:
-            if (e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " % " + e2.getCode(), intType);
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* Arithmetic - MINUS (unary & binary) */
+      | MINUS expression:e1 {: 
+        if(e1.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression("-" + e1.getCode(), intType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Unary '-' requires INTEGER operand");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
+      | expression:e1 MINUS {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for '-'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 MINUS expression:e2 {: 
+        if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " - " + e2.getCode(), intType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in '-': expected INTEGER");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
 
-		| AND expression:e1		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 AND		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 AND expression:e2
-		{:
-            // System.out.println("AND operation: " + e1.getCode() + " AND " + e2.getCode());
-			if(e1.getType().getTargetType().equals(boolType) && e2.getType().getTargetType().equals(boolType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " AND " + e2.getCode(), boolType);
-            }
-            else throw new TypeMismatchedException(e1left, e1right);
-		:}
+      /* Arithmetic - TIMES */
+      | TIMES expression:e1 {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1left, "Missing left operand for '*'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 TIMES {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for '*'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 TIMES expression:e2 {: 
+        if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " * " + e2.getCode(), intType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in '*': expected INTEGER");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
 
-		| OR expression:e1 		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 OR 		{:	if (true)	throw new MissingOperandException();	:}
-		| expression:e1 OR expression:e2
-		{:
-			if(e1.getType().getTargetType().equals(boolType) && e2.getType().getTargetType().equals(boolType)) {
-                RESULT = new mySymbol.Expression(e1.getCode() + " OR " + e2.getCode(), boolType);
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* Arithmetic - DIV */
+      | DIV expression:e1 {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1left, "Missing left operand for 'DIV'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 DIV {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for 'DIV'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 DIV expression:e2 {: 
+        if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " / " + e2.getCode(), intType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in 'DIV': expected INTEGER");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
 
-		| NOT			{:	if (true)	throw new MissingOperandException();	:}
-		| NOT expression:e
-		{:
-			if(e.getType().getTypeName().equals("BOOLEAN")) {
-                RESULT = new mySymbol.Expression("NOT " + e.getCode(), boolType);
-            }
-            else throw new TypeMismatchedException();
-		:}
+      /* Arithmetic - MOD */
+      | MOD expression:e1 {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1left, "Missing left operand for 'MOD'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 MOD {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for 'MOD'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 MOD expression:e2 {: 
+        if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " % " + e2.getCode(), intType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in 'MOD': expected INTEGER");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
 
-		| LPAREN expression:e RPAREN	{:	RESULT = e;	:}
-		| LPAREN RPAREN{:		if (true)	throw new MissingOperandException();		:}
-        | error RPAREN:r {:		if (true)	throw new MissingLeftParenthesisException(rleft, rright);     :}
+      /* Boolean - AND */
+      | AND expression:e1 {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1left, "Missing left operand for 'AND'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 AND {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for 'AND'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 AND expression:e2 {: 
+        if(e1.getType().getTargetType().equals(boolType) && e2.getType().getTargetType().equals(boolType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " AND " + e2.getCode(), boolType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in 'AND': expected BOOLEAN");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
+
+      /* Boolean - OR */
+      | OR expression:e1 {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1left, "Missing left operand for 'OR'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 OR {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for 'OR'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | expression:e1 OR expression:e2 {: 
+        if(e1.getType().getTargetType().equals(boolType) && e2.getType().getTargetType().equals(boolType)) {
+            RESULT = new mySymbol.Expression(e1.getCode() + " OR " + e2.getCode(), boolType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Type mismatch in 'OR': expected BOOLEAN");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
+
+      /* Boolean - NOT */
+      | NOT:n {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, nleft, "Missing operand for 'NOT'");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | NOT expression:e {: 
+        if(e.getType().getTargetType().equals(boolType)) {
+            RESULT = new mySymbol.Expression("NOT " + e.getCode(), boolType);
+        } else {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, eleft, "Type mismatch in 'NOT': expected BOOLEAN");
+            RESULT = new mySymbol.Expression("ERROR", errorType);
+        }
+      :}
+
+      /* Parenthesized */
+      | LPAREN expression:e RPAREN {: 
+        RESULT = e;
+      :}
+      | LPAREN:l RPAREN {: 
+        ErrorReport.reportError(ErrorType.MissingOperandException, lleft, "Empty parentheses");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
+      | error RPAREN:r {: 
+        ErrorReport.reportError(ErrorType.MissingLeftParenthesisException, rleft, "Missing left parenthesis");
+        RESULT = new mySymbol.Expression("ERROR", errorType);
+      :}
 
 		| IDENTIFIER:id selector: s
 		{:
@@ -800,7 +918,7 @@ selector ::=
     :}
     | selector:s LBRACK expression:e RBRACK {:
         if(!e.getType().getTargetType().equals(intType)) {
-            throw new TypeMismatchedException(eleft, eright);
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, eleft, "Array index must be of type INTEGER");
         }
         RESULT = s;
         RESULT.addIndexSelector(e.getCode());
