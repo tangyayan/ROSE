@@ -1,4 +1,4 @@
-(* Error: IllegalIntegerException at line 30 *)
+(* Error: IllegalIntegerException at line 30. *)
 MODULE Sample;
     CONST
         N=040;

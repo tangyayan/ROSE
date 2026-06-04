@@ -1,4 +1,4 @@
-(* Error: IllegalSymbolException at line 11 *)
+(* Error: IllegalSymbolException at line 11. *)
 MODULE Sample;
     CONST
         N=040;

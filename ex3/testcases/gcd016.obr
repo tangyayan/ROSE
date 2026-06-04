@@ -1,4 +1,4 @@
-(* Error: Syntactic Error at line 69. *)
+(* Error: SyntacticException at line 69. *)
 MODULE Sample;
     CONST
         N=040;

@@ -1,4 +1,4 @@
-(* Error: MismatchedCommentException at line 57 *)
+(* Error: MismatchedCommentException at line 57. *)
 MODULE Sample;
     CONST
         N=040;

@@ -1,4 +1,4 @@
-(* Error: IllegalIdentifierLengthException at line 11 *)
+(* Error: IllegalIdentifierLengthException at line 11. *)
 MODULE Sample;
     CONST
         N=040;

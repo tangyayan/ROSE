@@ -1,0 +1,8 @@
+(* Error: TypeMismatchedException at line 7. *)
+MODULE Sample;
+    VAR
+        a,b,c: INTEGER;
+        d,e,f: BOOLEAN;
+BEGIN
+    f := ~d & e = f
+END Sample.

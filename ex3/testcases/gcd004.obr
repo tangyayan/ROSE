@@ -1,4 +1,4 @@
-(* Error: IllegalOctalException at line 4 *)
+(* Error: IllegalOctalException at line 4. *)
 MODULE Sample;
     CONST
         N=0409;
