@@ -184,28 +184,23 @@ typedef int in_p;
 
 当type是一个没定义的类型
 
-
 对部分冒号缺失的判断
 
 ![1780540487539](image/yaccgen/1780540487539.png)
 
 ![1780540623905](image/yaccgen/1780540623905.png)
 
-
 gcd008:
 
 ![1780541710693](image/yaccgen/1780541710693.png)
-
 
 gcd014:
 
 ![1780541768072](image/yaccgen/1780541768072.png)
 
-
 gcd013:
 
 ![1780541848511](image/yaccgen/1780541848511.png)
-
 
 对于**actual_parameters**缺少左括号不能直接匹配 `expression RPAREN` 他会在函数调用时产生移入归约冲突：
 
@@ -220,7 +215,6 @@ Warning : *** Shift/Reduce conflict found in state #135
 这是由于此时右边有括号时可能是参数调用的状态 `func(expression)` 不一定是错误，因此这样是不行的，但我们可以使用error进行错误恢复
 
 对于缺少右括号，匹配错误模式 `LPAREN:l expression_list_opt:el`，由于函数调用是一行的，他的右边第一个符号一定是;因此该判断是有效的
-
 
 对于表达式：
 
@@ -239,7 +233,6 @@ Warning : *** Shift/Reduce conflict found in state #135
 
 `((expression)) ` 可以看到这种情况会发生冲突（LALR只看一个导致的）
 
-
 **formal_parameters：**
 
 只能判断缺少左侧括号，同样用error判断
@@ -248,30 +241,31 @@ Warning : *** Shift/Reduce conflict found in state #135
 
 比如 `fun(a,b:INTEGER;c:INTEGER);`
 
-
 ![1780543725486](image/yaccgen/1780543725486.png)
 
 为了让一个程序识别到错误继续运行，可以返回一个error类型继续运行
 
-
 为什么expression的（还是不行？
-
 
 gcd010:
 
 ![1780545298596](image/yaccgen/1780545298596.png)
 
-
 gcd018：
 
 ![1780545711473](image/yaccgen/1780545711473.png)
-
 
 申明函数缺少右括号：`PROCEDURE BinSearch)`
 
 ![1780546965085](image/yaccgen/1780546965085.png)
 
-
 复杂的类型和调用(见 `callgraph.obr` )
 
 ![1780548393626](image/yaccgen/1780548393626.png)
+
+
+优先级分配：
+
+对于正负号和乘号 `-1+3` 以及 `--1*2` 的优先级选取
+
+![1780566234709](image/yaccgen/1780566234709.png)

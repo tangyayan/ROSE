@@ -7,39 +7,41 @@
 public class sym {
   /* terminals */
   public static final int CONST = 8;
+  public static final int UMINUS = 35;
   public static final int ELSIF = 18;
+  public static final int UPLUS = 36;
   public static final int INTEGER = 3;
-  public static final int LPAREN = 37;
-  public static final int SEMI = 35;
+  public static final int LPAREN = 39;
+  public static final int SEMI = 37;
   public static final int ARRAY = 11;
   public static final int MINUS = 28;
-  public static final int RPAREN = 38;
+  public static final int RPAREN = 40;
   public static final int NOT = 34;
   public static final int AND = 32;
   public static final int LT = 24;
   public static final int RECORD = 13;
   public static final int TYPE = 9;
   public static final int OR = 33;
-  public static final int COMMA = 39;
+  public static final int COMMA = 41;
   public static final int DIV = 30;
   public static final int BEGIN = 6;
   public static final int GEQ = 25;
   public static final int PLUS = 27;
   public static final int ASSIGN = 20;
   public static final int IF = 16;
-  public static final int DOT = 36;
+  public static final int DOT = 38;
   public static final int OF = 12;
   public static final int EOF = 0;
   public static final int error = 1;
   public static final int MOD = 31;
   public static final int NEQ = 22;
   public static final int EQ = 21;
-  public static final int LBRACK = 40;
+  public static final int LBRACK = 42;
   public static final int MODULE = 4;
   public static final int TIMES = 29;
-  public static final int COLON = 42;
+  public static final int COLON = 44;
   public static final int ELSE = 19;
-  public static final int RBRACK = 41;
+  public static final int RBRACK = 43;
   public static final int WHILE = 14;
   public static final int THEN = 17;
   public static final int LEQ = 23;
@@ -85,6 +87,8 @@ public class sym {
   "AND",
   "OR",
   "NOT",
+  "UMINUS",
+  "UPLUS",
   "SEMI",
   "DOT",
   "LPAREN",

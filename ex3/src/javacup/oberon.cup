@@ -7,8 +7,6 @@ import exceptions.ErrorReport.ErrorType;
 parser code  {: 
     public CallGraph graph = new CallGraph();
     
-    // 延迟边：{callSiteId, calleeName, callSiteLine} {Env} {calleeType}
-    // calleName global.procedure name 即为id
     public List<PendingEdges> pendingEdges = new ArrayList<>();
     public int callSiteCounter = 0;
 
@@ -80,6 +78,7 @@ terminal MODULE, PROCEDURE, BEGIN, END, CONST, TYPE, VAR;
 terminal ARRAY, OF, RECORD, WHILE, DO, IF, THEN, ELSIF, ELSE;
 terminal ASSIGN, EQ, NEQ, LEQ, LT, GEQ, GT;
 terminal PLUS, MINUS, TIMES, DIV, MOD, AND, OR, NOT;
+terminal UMINUS, UPLUS;
 terminal SEMI, DOT, LPAREN, RPAREN, COMMA, LBRACK, RBRACK, COLON;
 
 /* ===========================
@@ -130,13 +129,12 @@ non terminal mySymbol.Expression identifier_selector;
    Precedences
    =========================== */
 precedence right ASSIGN;
-precedence left OR;
-precedence left AND;
-precedence right NOT;
 precedence left EQ, NEQ, LT, LEQ, GT, GEQ;
-precedence left PLUS, MINUS;
-precedence left TIMES, DIV, MOD;
+precedence left PLUS, MINUS, OR;
+precedence right UMINUS, UPLUS;
+precedence left TIMES, DIV, MOD, AND;
 precedence left LPAREN;
+precedence right NOT;
 
 module ::= 
     MODULE IDENTIFIER:i SEMI {: 
@@ -640,12 +638,13 @@ expression ::=
             ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Unary '+' requires INTEGER operand");
             RESULT = new mySymbol.Expression("ERROR", errorType);
         }
-      :}
+      :} %prec UPLUS
       | expression:e1 PLUS {: 
         ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for '+'");
         RESULT = new mySymbol.Expression("ERROR", errorType);
       :}
       | expression:e1 PLUS expression:e2 {: 
+        // System.out.println("(" + e1.getCode() + ") + (" + e2.getCode() + ")");
         if(e1.getType().getTargetType().equals(intType) && e2.getType().getTargetType().equals(intType)) {
             RESULT = new mySymbol.Expression(e1.getCode() + " + " + e2.getCode(), intType);
         } else {
@@ -656,13 +655,14 @@ expression ::=
 
       /* Arithmetic - MINUS (unary & binary) */
       | MINUS expression:e1 {: 
+        // System.out.println("-("+e1.getCode()+")");
         if(e1.getType().getTargetType().equals(intType)) {
             RESULT = new mySymbol.Expression("-" + e1.getCode(), intType);
         } else {
             ErrorReport.reportError(ErrorType.TypeMismatchedException, e1left, "Unary '-' requires INTEGER operand");
             RESULT = new mySymbol.Expression("ERROR", errorType);
         }
-      :}
+      :} %prec UMINUS
       | expression:e1 MINUS {: 
         ErrorReport.reportError(ErrorType.MissingOperandException, e1right, "Missing right operand for '-'");
         RESULT = new mySymbol.Expression("ERROR", errorType);
