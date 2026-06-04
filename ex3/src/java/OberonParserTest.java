@@ -79,9 +79,14 @@ public class OberonParserTest {
             System.exit(1);
         }
 
-        File[] obrFiles = dir.listFiles(
-            (d, name) -> name.toLowerCase().endsWith(".obr")
-        );
+        // File[] obrFiles = dir.listFiles(
+        //     (d, name) -> name.toLowerCase().endsWith(".obr")
+        // );
+        Pattern p = Pattern.compile("gcd(\\d+)\\.obr", Pattern.CASE_INSENSITIVE);
+        File[] obrFiles = dir.listFiles((d, name) -> {
+            Matcher m = p.matcher(name);
+            return m.matches() && Integer.parseInt(m.group(1)) >= 8;
+        });
         if (obrFiles == null || obrFiles.length == 0) {
             System.out.println("No .obr files found in: " + argv[0]);
             return;

@@ -868,12 +868,12 @@ public class OberonScanner implements java_cup.runtime.Scanner {
           case 63: break;
           case 12:
             { if(yylength() > 12) {
-            throw new IllegalIntegerRangeException();
+            throw new IllegalIntegerRangeException("at line " + (yyline+1) + ", column " + (yycolumn+1));
         }
         String octStr = yytext();
         for (char c : octStr.toCharArray()) {
             if (c < '0' || c > '7') {
-                throw new IllegalOctalException();
+                throw new IllegalOctalException("at line " + (yyline+1) + ", column " + (yycolumn+1));
             }
         }
         return symbol(sym.INTEGER, Integer.valueOf(Integer.parseInt(octStr, 8)));
@@ -882,7 +882,7 @@ public class OberonScanner implements java_cup.runtime.Scanner {
           case 64: break;
           case 13:
             { if(yylength() > 12) {
-            throw new IllegalIntegerRangeException();
+            throw new IllegalIntegerRangeException("at line " + (yyline+1) + ", column " + (yycolumn+1));
         }
         return symbol(sym.INTEGER, Integer.valueOf(yytext()));
             }
@@ -915,7 +915,7 @@ public class OberonScanner implements java_cup.runtime.Scanner {
           case 70: break;
           case 19:
             { if(yylength() > 24) {
-            throw new IllegalIdentifierLengthException();
+            throw new IllegalIdentifierLengthException("at line " + (yyline+1) + ", column " + (yycolumn+1));
         }
         return symbol(sym.IDENTIFIER, yytext().toUpperCase());
             }
@@ -942,7 +942,7 @@ public class OberonScanner implements java_cup.runtime.Scanner {
             // fall through
           case 75: break;
           case 24:
-            { throw new IllegalIntegerException();
+            { throw new IllegalIntegerException("at line " + (yyline+1) + ", column " + (yycolumn+1));
             }
             // fall through
           case 76: break;
