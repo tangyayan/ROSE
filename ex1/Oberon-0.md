@@ -77,10 +77,10 @@ OberonException
 
 **语法分析：**
 
-* 007：缺少左括号
+* 008：缺少右括号
   * 正常写法：`Write(a[ans].id)`
   * 变异写法：`Write(a[ans].id`
-* 008：缺少右括号
+* 007：缺少左括号
   * 正常写法：`WHILE (y>0) DO`
   * 变异写法：`WHILE y>0) DO`
 * 009：缺少运算符
@@ -92,6 +92,9 @@ OberonException
 * 010：缺少操作数
   * 正常写法：`i := i + 1`
   * 变异写法：`i := i + `
+* 016：Procedure定义和结束名称不一致
+  * 正常写法：`END Main`
+  * 变异写法：`END Maina`
 
 **语义分析：**
 
