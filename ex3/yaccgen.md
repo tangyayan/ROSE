@@ -270,3 +270,8 @@ gcd018：
 申明函数缺少右括号：`PROCEDURE BinSearch)`
 
 ![1780546965085](image/yaccgen/1780546965085.png)
+
+
+复杂的类型和调用(见 `callgraph.obr` )
+
+![1780548393626](image/yaccgen/1780548393626.png)

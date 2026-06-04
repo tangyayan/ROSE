@@ -2,11 +2,14 @@
 MODULE CallGraph;
     TYPE 
         myint=INTEGER;
-        myarray=ARRAY 10 OF myint;
-        myint2=myint;
+        myrecord=RECORD
+            id: myint;
+            istrue: BOOLEAN;
+        END;
+        myarray=ARRAY 10 OF myrecord;
     VAR x, y: INTEGER;
 
-    PROCEDURE a(now: mYint2);
+    PROCEDURE a(now: mYint; istrue: BOOLEAN);
     BEGIN
         b(x, 1);
         c(y, 2);
@@ -30,7 +33,7 @@ MODULE CallGraph;
     PROCEDURE d(i: INTEGER; j: INTEGER);
         VAR aa: ARRAY 10 OF myarray;
     BEGIN
-        a(aa[0][0]);
+        a(aa[0][0].id, aa[0][1].istrue);
         y := i * j;
     END d;
 END CallGraph.

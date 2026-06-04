@@ -124,6 +124,7 @@ non terminal List<mySymbol.Expression> actual_parameters_opt;
 non terminal List<mySymbol.Expression> expression_list_opt;
 non terminal List<mySymbol.Expression> expression_list;
 non terminal mySymbol.Selector selector;
+non terminal mySymbol.Expression identifier_selector;
 
 /* ===========================
    Precedences
@@ -503,65 +504,12 @@ expression_list ::=
    =========================== */
 
 assignment ::=
-    IDENTIFIER:id selector:s ASSIGN expression:e {:
-        mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
-        mySymbol.TableSymbol now_sym = currentEnv.lookup(id);
-        mySymbol.Type currentType;
-        if(now_sym == null) {
-            ErrorReport.reportError(ErrorType.SemanticException, idleft, "Undefined identifier \"" + id + "\"");
-            currentType = errorType;
-        } else if (now_sym.getKind().equals("VAR")) {
-            mySymbol.Var varSym = (mySymbol.Var) now_sym;
-            currentType = varSym.getType();
-        } else if (now_sym.getKind().equals("CONST")) {
-            mySymbol.Const constSym = (mySymbol.Const) now_sym;
-            currentType = constSym.getType();
-        } 
-        else { // 函数调用不应该出现在表达式中
-            ErrorReport.reportError(ErrorType.SemanticException, idleft, "Identifier \"" + id + "\" is not a variable or constant");
-            currentType = errorType;
-        } 
-
-        if(!currentType.getTargetType().equals(errorType)) {
-            if(!s.isEmpty()) {
-            for(mySymbol.Selector.SelectorNode node : s.getNodes()){
-                if(currentType instanceof mySymbol.AliasType) {
-                    currentType = ((mySymbol.AliasType) currentType).getTargetType();
-                }
-                if(node.isFieldSelector()){
-                    if(!(currentType instanceof mySymbol.RecordType)){
-                        ErrorReport.reportError(ErrorType.SemanticException, sleft,
-                            "Field selector applied to non-record type");
-                        currentType = errorType;
-                        break;
-                    }
-                    mySymbol.RecordType record = (mySymbol.RecordType)currentType;
-                    String fieldName = node.getFieldName();
-                    mySymbol.Parameter field = record.getField(fieldName);
-                    if(field == null){
-                        ErrorReport.reportError(ErrorType.SemanticException, sleft,
-                            "Undefined field \"" + fieldName + "\" in record type");
-                        currentType = errorType;
-                        break;
-                    }
-                    currentType = field.getType();
-                }
-                else { // index selector
-                    if(!(currentType instanceof mySymbol.ArrayType)){
-                        ErrorReport.reportError(ErrorType.SemanticException, sleft,
-                            "Index selector applied to non-array type");
-                        currentType = errorType;
-                        break;
-                    }
-                    currentType = ((mySymbol.ArrayType)currentType).getElementType();
-                }
-            }
-            }
-            if(!currentType.getTargetType().equals(e.getType().getTargetType()))
-            {
-                ErrorReport.reportError(ErrorType.TypeMismatchedException, idleft, 
-                    "in assignment, cannot assign " + e.getType().getTypeName() + " to " + currentType.getTypeName());
-            }
+    identifier_selector:is ASSIGN expression:e {:
+        mySymbol.Type isType = is.getType();
+        if(!isType.getTargetType().equals(e.getType().getTargetType()))
+        {
+            ErrorReport.reportError(ErrorType.TypeMismatchedException, isleft, 
+                "in assignment, cannot assign " + e.getType().getTypeName() + " to " + isType.getTypeName());
         }
     :}
     ;
@@ -845,68 +793,7 @@ expression ::=
         RESULT = new mySymbol.Expression("ERROR", errorType);
       :}
 
-		| IDENTIFIER:id selector: s
-		{:
-            mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
-            mySymbol.TableSymbol now_sym = currentEnv.lookup(id);
-            mySymbol.Type currentType;
-            if(now_sym == null) {
-                ErrorReport.reportError(ErrorType.SemanticException, idleft, "Undefined identifier \"" + id + "\"");
-                currentType = errorType;
-            } else if (now_sym.getKind().equals("VAR")) {
-                mySymbol.Var varSym = (mySymbol.Var) now_sym;
-                currentType = varSym.getType();
-            } else if (now_sym.getKind().equals("CONST")) {
-                mySymbol.Const constSym = (mySymbol.Const) now_sym;
-                currentType = constSym.getType();
-            } 
-            else { // 函数调用不应该出现在表达式中
-                ErrorReport.reportError(ErrorType.SemanticException, idleft, "Identifier \"" + id + "\" is not a variable or constant");
-                currentType = errorType;
-            } 
-
-            if(currentType!=errorType) {
-                String code = id;
-                if(!s.isEmpty()) {
-                    for(mySymbol.Selector.SelectorNode node : s.getNodes()){
-                        if(currentType instanceof mySymbol.AliasType) {
-                            currentType = ((mySymbol.AliasType) currentType).getTargetType();
-                        }
-                        if(node.isFieldSelector()){
-                            if(!(currentType instanceof mySymbol.RecordType)){
-                                ErrorReport.reportError(ErrorType.SemanticException, sleft,
-                                    "Field selector applied to non-record type");
-                                currentType = errorType;
-                                break;
-                            }
-                            mySymbol.RecordType record = (mySymbol.RecordType)currentType;
-                            String fieldName = node.getFieldName();
-                            mySymbol.Parameter field = record.getField(fieldName);
-                            if(field == null){
-                                ErrorReport.reportError(ErrorType.SemanticException, sleft,
-                                    "Undefined field \"" + fieldName + "\" in record type");
-                                currentType = errorType;
-                                break;
-                            }
-                            currentType = field.getType();
-                        }
-                        else { // index selector
-                            if(!(currentType instanceof mySymbol.ArrayType)){
-                                ErrorReport.reportError(ErrorType.SemanticException, sleft,
-                                    "Index selector applied to non-array type");
-                                currentType = errorType;
-                                break;
-                            }
-                            currentType = ((mySymbol.ArrayType)currentType).getElementType();
-                        }
-                    }
-                    code += s.getCode();
-                }
-                RESULT = new mySymbol.Expression(code, currentType);
-            }
-            else RESULT = new mySymbol.Expression(id, currentType);
-		:}
-
+		| identifier_selector:is {: RESULT = is; :}
 		| INTEGER:i
 		{:
 			RESULT = new mySymbol.Expression(i.toString(), intType);
@@ -929,4 +816,67 @@ selector ::=
         RESULT.addIndexSelector(e.getCode());
     :}
     | /* empty */ {: RESULT = new mySymbol.Selector(); :}
-    ; /* TODO: 支持selector */
+    ;
+
+identifier_selector ::=
+    IDENTIFIER:id selector:s {:
+        mySymbol.Env currentEnv = mySymbol.Env.getCurrentEnv();
+        mySymbol.TableSymbol now_sym = currentEnv.lookup(id);
+        mySymbol.Type currentType;
+        if(now_sym == null) {
+            ErrorReport.reportError(ErrorType.SemanticException, idleft, "Undefined identifier \"" + id + "\"");
+            currentType = errorType;
+        } else if (now_sym.getKind().equals("VAR")) {
+            mySymbol.Var varSym = (mySymbol.Var) now_sym;
+            currentType = varSym.getType();
+        } else if (now_sym.getKind().equals("CONST")) {
+            mySymbol.Const constSym = (mySymbol.Const) now_sym;
+            currentType = constSym.getType();
+        } 
+        else { // 函数调用不应该出现在表达式中
+            ErrorReport.reportError(ErrorType.SemanticException, idleft, "Identifier \"" + id + "\" is not a variable or constant");
+            currentType = errorType;
+        } 
+
+        if(currentType!=errorType) {
+            String code = id;
+            if(!s.isEmpty()) {
+                for(mySymbol.Selector.SelectorNode node : s.getNodes()){
+                    if(currentType instanceof mySymbol.AliasType) {
+                        currentType = ((mySymbol.AliasType) currentType).getTargetType();
+                    }
+                    if(node.isFieldSelector()){
+                        if(!(currentType instanceof mySymbol.RecordType)){
+                            ErrorReport.reportError(ErrorType.SemanticException, sleft,
+                                "Field selector applied to non-record type");
+                            currentType = errorType;
+                            break;
+                        }
+                        mySymbol.RecordType record = (mySymbol.RecordType)currentType;
+                        String fieldName = node.getFieldName();
+                        mySymbol.Parameter field = record.getField(fieldName);
+                        if(field == null){
+                            ErrorReport.reportError(ErrorType.SemanticException, sleft,
+                                "Undefined field \"" + fieldName + "\" in record type");
+                            currentType = errorType;
+                            break;
+                        }
+                        currentType = field.getType();
+                    }
+                    else { // index selector
+                        if(!(currentType instanceof mySymbol.ArrayType)){
+                            ErrorReport.reportError(ErrorType.SemanticException, sleft,
+                                "Index selector applied to non-array type");
+                            currentType = errorType;
+                            break;
+                        }
+                        currentType = ((mySymbol.ArrayType)currentType).getElementType();
+                    }
+                }
+                code += s.getCode();
+            }
+            RESULT = new mySymbol.Expression(code, currentType);
+        }
+        else RESULT = new mySymbol.Expression(id, currentType);
+    :}
+;
