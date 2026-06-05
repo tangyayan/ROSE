@@ -97,6 +97,7 @@ classDiagram
     -List~parameter~ parameterList
     +addFpSection()
     +getSize()
+    +checkType(List~Expression~) boolean
   }
 
   class Var{

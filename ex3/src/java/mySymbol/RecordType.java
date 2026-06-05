@@ -75,9 +75,10 @@ public class RecordType implements Type {
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
-        if (!(obj instanceof RecordType)) return false;
-        RecordType other = (RecordType) obj;
-        return fields.equals(other.fields);
+        else return false;
+        // if (!(obj instanceof RecordType)) return false;
+        // RecordType other = (RecordType) obj;
+        // return fields.equals(other.fields);
     }
 
     @Override
