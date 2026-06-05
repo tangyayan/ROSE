@@ -10,6 +10,9 @@ public class Selector {
      * 表示选择器链中的一个节点，可以是字段选择器（.identifier）或索引选择器（[expr]）
      */
     public static class SelectorNode {
+        /**
+         * 选择器类型，FIELD 表示字段选择器，例如 ".fieldName"，INDEX 表示索引选择器，例如 "[indexExpr]"
+         */
         enum Type { FIELD, INDEX }
         Type type;
         String fieldName; // 对应 ".identifier"

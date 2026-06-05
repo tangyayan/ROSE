@@ -2,6 +2,9 @@ package mySymbol;
 
 import java.util.Objects;
 
+/**
+ * 参数类，表示过程或函数的参数
+ */
 public class Parameter {
     private String name;
     private Type type;
