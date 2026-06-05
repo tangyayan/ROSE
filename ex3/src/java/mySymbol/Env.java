@@ -113,6 +113,10 @@ public class Env {
         return new Hashtable<>(table);
     }
 
+    /**
+     * 获取父作用域
+     * @return 父作用域对象，如果没有父作用域则返回null
+     */
     public Env getFather() {
         return father;
     }

@@ -27,6 +27,7 @@ public class ArrayType implements Type {
         return elementType;
     }
 
+    @Override
     public Type getTargetType() {
         return this;
     }

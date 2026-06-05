@@ -18,6 +18,7 @@ public class PrimitiveType implements Type {
         this.typeName = typeName;
     }
 
+    @Override
     public Type getTargetType() {
         return this;
     }

@@ -20,6 +20,11 @@ public class Expression {
         this.isLValue = isLValue;
     }
 
+    /**
+     * 简化构造器 - 默认不是左值
+     * @param code 生成的代码
+     * @param type 表达式的类型
+     */
     public Expression(String code, Type type) {
         this(code, type, false);
     }

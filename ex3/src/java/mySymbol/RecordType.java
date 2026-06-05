@@ -18,6 +18,7 @@ public class RecordType implements Type {
         this.typeName = "RECORD";
     }
 
+    @Override
     public Type getTargetType() {
         return this;
     }
