@@ -1,5 +1,8 @@
 import java.io.*;
 
+/**
+ * 运行入口
+ */
 public class Main {
     public static void main(String[] argv) throws Exception {
 

@@ -11,7 +11,6 @@ public class Const implements TableSymbol {
      * 构造器
      * @param name 常数名
      * @param type 常数类型
-     * @param value 常数值
      */
     public Const(String name, Type type) {
         this.name = name;

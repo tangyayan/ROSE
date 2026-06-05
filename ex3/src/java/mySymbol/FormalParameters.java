@@ -88,20 +88,9 @@ public class FormalParameters implements TableSymbol {
 
     /**
      * 检查实参类型是否与形参匹配，并返回错误信息
-     * @param argTypes
+     * @param args 实参表达式列表
      * @return null if matches, error message otherwise
      */
-    // public String checkTypesWithMessage(List<Type> argTypes) {
-    //     if (argTypes.size() != parameterList.size()) {
-    //         return "expected " + parameterList.size() + ", got " + argTypes.size();
-    //     }
-    //     for (int i = 0; i < argTypes.size(); i++) {
-    //         if (!argTypes.get(i).equals(parameterList.get(i).getType())) {
-    //             return "For parameter \"" + parameterList.get(i).getName() + "\", expected " + parameterList.get(i).getType() + ", got " + argTypes.get(i);
-    //         }
-    //     }
-    //     return null; // No mismatch
-    // }
     public String checkTypesWithMessage(List<Expression> args) {
         if (args.size() != parameterList.size()) {
             return "expected " + parameterList.size() + ", got " + args.size();

@@ -27,9 +27,7 @@ public class AliasType implements Type {
         return typeName;
     }
 
-    /**
-     * 获取目标类型
-     */
+    @Override
     public Type getTargetType() {
         return targetType;
     }

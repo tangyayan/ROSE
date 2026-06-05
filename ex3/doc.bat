@@ -9,7 +9,7 @@ javadoc ^
 -classpath ../bin;../lib/java-cup-11b-runtime.jar;../lib/callgraph.jar;../lib/jgraph.jar ^
 -private -author -version ^
 -d ../doc ^
-java/*.java java/exceptions/*.java java/mySymbol/*.java
+java/PendingEdges.java java/OberonParserTest.java java/Main.java java/exceptions/*.java java/mySymbol/*.java
 
 cd ..
 pause

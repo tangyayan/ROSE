@@ -9,7 +9,7 @@ public class Parameter {
 
     /**
      * 构造器
-     * @param identList 标识符列表
+     * @param name 标识符
      * @param type 类型
      * @param isVar 是否为 VAR 参数
      */

@@ -1,7 +1,13 @@
 package exceptions;
 
+/**
+ * 错误报告类，用于统一处理词法、语法和语义错误
+ */
 public class ErrorReport {
-   public static enum ErrorType {
+    /**
+     * 错误类型枚举，包含词法错误、语法错误和语义错误的具体类型
+     */
+    public static enum ErrorType {
         LexicalException,                   // 词法错误
         IllegalSymbolException,             // 非法符号异常
         IllegalIntegerException,            // 非法整数异常
@@ -21,6 +27,12 @@ public class ErrorReport {
         ParameterMismatchedException        // 参数数量不匹配异常
     }
 
+    /**
+     * 报告错误的方法，根据错误类型、行号和错误信息输出相应的错误消息
+     * @param type 错误类型
+     * @param line 错误所在行号
+     * @param message 错误信息
+     */
     public static void reportError(ErrorType type, int line, String message) {
         switch(type) {
             case LexicalException:
