@@ -1,0 +1,69 @@
+(* Error: MissingOperatorException at line 35. *)
+MODULE Sample;
+    CONST
+        N=040;
+    TYPE
+        Node=RECORD
+            id: INTEGER;
+            val: INTEGER
+        END;
+    VAR
+        a: ARRAY N OF Node;
+
+    (* Calculate the greatest common divisor. *)
+    PROCEDURE Gcd(x,y: INTEGER; VAR ans: INTEGER);
+        VAR t: INTEGER;
+    BEGIN
+        WHILE (y>0) DO
+            t := x MOD y;
+            x := y;
+            y := t;
+        END;
+        ans := x
+    END Gcd;
+
+    (* Binary search. *)
+    PROCEDURE BinSearch;
+        VAR n, i, x, l, r, mid, ans: INTEGER;
+    BEGIN
+        Read(n);
+        i := 0;
+        WHILE ~(i >= n) & (n<N) DO
+            Read(a[i].id); Read(a[i].val);
+            i := i + 1
+        END;
+        Read();
+
+        l := 0; r := n-1; ans := -1;
+        WHILE l<=r DO
+            mid := (l+r) DIV 2;
+            IF a[mid].val>=x THEN
+                r := mid-1;
+                ans := mid;
+            ELSE 
+                l := mid+1;
+            END
+        END;
+        IF ans=-1 THEN
+            Write(ans)
+        ELSIF a[ans].val#x THEN
+            Write(a[ans].val)
+        ELSE
+            Write(a[ans].id)
+        END;
+        WriteLn
+    END BinSearch;
+
+    (* Call the greatest common divisor function. *)
+    PROCEDURE Main;
+        VAR x,y,ans: INTEGER;
+    BEGIN
+        Read(x); Read(y);
+        IF (x<0) OR (y<0) THEN  
+            Write(-1)
+        ELSE
+            Gcd(x, y, ans);
+            Write(ans)
+        END
+    END Main;
+END Sample.

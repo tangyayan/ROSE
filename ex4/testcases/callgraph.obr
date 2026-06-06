@@ -1,0 +1,39 @@
+(* An Oberon-0 demonstrating the usage of a call graph. *)
+MODULE CallGraph;
+    TYPE 
+        myint=INTEGER;
+        myrecord=RECORD
+            id: myint;
+            istrue: BOOLEAN;
+        END;
+        myarray=ARRAY 10 OF myrecord;
+    VAR x, y: INTEGER;
+
+    PROCEDURE a(now: mYint; istrue: BOOLEAN);
+    BEGIN
+        b(x, 1);
+        c(y, 2);
+    END a;
+
+    PROCEDURE b(i: INTeGER; j: INTEGEr);
+        PROCEDURE d();
+        BEGIN
+        END d;
+    BEGIN
+        d();
+        x := i + j;
+    END b;
+
+    PROCEDURE c(i: INTEGER; j: INTEGER);
+    BEGIN
+        b(x + i, 2 * j);
+        d(2 * i, y + j);
+    END c;
+    
+    PROCEDURE d(i: INTEGER; j: INTEGER);
+        VAR aa: ARRAY 10 OF myarray;
+    BEGIN
+        a(aa[0][0].id, aa[0][1].istrue);
+        y := i * j;
+    END d;
+END CallGraph.
