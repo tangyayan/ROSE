@@ -15,9 +15,9 @@ E:.
 │  gen.bat            // 根据 JFlex/CUP 规范生成代码
 │  run.bat            // 运行编译器
 │  test.bat           // 批量运行测试用例
-│  yaccgen.pdf        // 项目说明或实验要求文档
+│  yaccgen.pdf        // 实验报告
 │
-├─bin/                // 编译生成的 .class 文件
+├─bin/                // 编译生成的 .class 文件目录
 ├─doc/                // Javadoc 生成目录
 ├─lib/                // 第三方依赖库
 ├─simple_test/        // 简单测试程序

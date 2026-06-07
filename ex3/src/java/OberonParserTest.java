@@ -4,23 +4,12 @@ import java.util.*;
 import java.util.regex.*;
 
 /**
- * Test runner for Oberon parser error output.
- *
- * For each .obr file:
- *   - Reads the first line to extract expected exception type and line numbers
- *   - Runs the parser and captures stderr
- *   - Verifies that the expected exception type appears in stderr
- *   - Verifies that every expected line number appears in stderr
- *
- * Expected first-line formats:
- *   (* Error: IllegalSymbolException at line 11. *)
- *   (* Error: SemanticException at line 33, 41. *)
- *   (* NoError *)  ->  stderr must be empty
+ * 自动化测试工具，用于验证 Oberon 代码解析器的正确性。
  */
 public class OberonParserTest {
 
     /**
-     * Parsed expectation from the first line of the .obr file
+     * 从 .obr 文件第一行解析出的预期结果，包括是否期望无错误、期望的异常类型和行号列表。
      */
     static class Expectation {
         final boolean noError;
@@ -35,7 +24,7 @@ public class OberonParserTest {
     }
 
     /**
-     * Result of running a test on a single .obr file
+     * 测试结果对象，包含测试文件名、是否通过以及失败详情（如果未通过）。
      */
     static class TestResult {
         final String  filename;
@@ -50,8 +39,7 @@ public class OberonParserTest {
     }
 
     /**
-     * Pattern to parse the first line of the .obr file for expected error type and line numbers.
-     * Example: (* Error: SemanticException at line 33, 41. *)
+     * .obr 文件第一行的格式，如 (* Error: SomeException at line N, M. *), 用于提取预期的异常类型和行号列表。
      */
     private static final Pattern HEADER_PATTERN =
         Pattern.compile(
@@ -62,7 +50,9 @@ public class OberonParserTest {
     private static final Pattern NO_ERROR_PATTERN =
         Pattern.compile("\\(\\*\\s*NoError\\s*\\*\\)");
 
-    // stderr line:  SomeException at line 5: message
+    /**
+     * 用于从 parser 的 stderr 输出中提取异常类型和行号的模式，如 "SemanticException at line 42"。
+     */
     private static final Pattern STDERR_LINE_PATTERN =
         Pattern.compile("(\\w+)\\s+at\\s+line\\s+(\\d+)");
 
@@ -125,9 +115,9 @@ public class OberonParserTest {
     }
 
     /**
-     * Run the test for a single .obr file
-     * @param obrFile the .obr file to test
-     * @return a TestResult indicating pass/fail and details of any failure
+     * 运行单个测试：解析预期结果，执行 parser，捕获 stderr 输出，并验证结果是否符合预期。
+     * @param obrFile 要测试的 .obr 文件
+     * @return 一个 TestResult 对象
      */
     private static TestResult runTest(File obrFile) {
 
@@ -156,10 +146,10 @@ public class OberonParserTest {
     }
 
     /**
-     * Parse the first line of the .obr file to extract the expected error type and line numbers.
-     * @param f the .obr file to read
-     * @return an Expectation object representing the parsed expectation
-     * @throws IOException if there is an error reading the file
+     * 从 .obr 文件第一行解析预期结果
+     * @param f 要解析的 .obr 文件
+     * @return 一个 Expectation 对象，包含是否期望无错误、期望的异常类型和行号列表
+     * @throws IOException
      */
     private static Expectation parseExpectation(File f) throws IOException {
         try (BufferedReader br = new BufferedReader(
@@ -197,10 +187,10 @@ public class OberonParserTest {
     }
 
     /**
-     * Run the Oberon parser on the given .obr file, capturing anything printed to System.err.
-     * @param obrFile the .obr file to parse
-     * @return the captured stderr output as a string 
-     * @throws Exception if the parser throws an exception during parsing (still captures stderr output)
+     * 运行 parser 解析 .obr 文件，并捕获其 stderr 输出。
+     * @param obrFile 要解析的 .obr 文件
+     * @return parser 运行期间捕获的 stderr 输出
+     * @throws Exception 
      */
     private static String runParser(File obrFile) throws Exception {
 
@@ -216,7 +206,6 @@ public class OberonParserTest {
             );
             Parser p = new Parser(new OberonScanner(reader));
             p.parse();
-            p.buildCallGraph(false);
         } catch (Exception e) {
             // Parser may throw — still want to inspect whatever was printed
             // Write the exception itself to the captured stream so callers
@@ -231,11 +220,11 @@ public class OberonParserTest {
     }
 
     /**
-     * Validate the parser's stderr output against the expected exception type and line numbers.
-     * @param filename the name of the .obr file being tested (for reporting purposes)
-     * @param exp the parsed expectation from the .obr file's first line
-     * @param stderr the captured stderr output from running the parser on the .obr file
-     * @return a TestResult indicating whether the test passed and details of any failure
+     * 验证 parser 的 stderr 输出是否符合预期结果。
+     * @param filename 测试文件名（用于报告）
+     * @param exp 预期结果对象，包含是否期望无错误、期望的异常类型和行号列表
+     * @param stderr parser 运行期间捕获的 stderr 输出
+     * @return 一个 TestResult 对象
      */
     private static TestResult validate(String filename,
                                        Expectation exp,

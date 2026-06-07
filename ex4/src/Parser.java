@@ -4,14 +4,13 @@ import flowchart.*;
 
 import java.util.*;
 
+/**
+ * 负责解析 Oberon 代码，构建符号表，进行类型检查，并生成流程图
+ */
 public class Parser {
 
     public OberonScanner scan;
     public Symbols lookahead;
-
-    // 括号计数
-    int LeftParen = 0;
-    int RightParen = 0;
 
     // 内置类型
     public mySymbol.Type intType   = mySymbol.PrimitiveType.INTEGER;
@@ -25,7 +24,7 @@ public class Parser {
     private Procedure currentProc;
 
     /**
-     * 语句序列栈：栈顶是当前活跃的 StatementSequence（WhileBody / IfTrueBody 等）。
+     * 语句序列栈：栈顶是当前活跃的 StatementSequence
      * 栈为空时直接向 currentProc 追加。
      */
     private final Deque<StatementSequence> seqStack = new ArrayDeque<>();

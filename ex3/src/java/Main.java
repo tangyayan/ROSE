@@ -16,7 +16,7 @@ public class Main {
         
         long start = System.nanoTime();
         p.parse();
-        p.buildCallGraph(false);
+        p.buildCallGraph(true);
         long end = System.nanoTime();
         System.out.println("Parsing and call graph construction completed in " + (end - start) / 1e9 + " seconds.");
     }
