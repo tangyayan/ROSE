@@ -4,12 +4,13 @@ MAX_DEPTH = 250
 VAR_COUNT = 50
 PROC_COUNT = 20
 STMT_PER_BLOCK = 50
+EXPR_DEPTH = 5
 
 var_names = [f"v{i}" for i in range(VAR_COUNT)]
 
 
 def gen_expr(depth=0):
-    if depth > 10 or random.random() < 0.4:
+    if depth > EXPR_DEPTH or random.random() < 0.4:
         return random.choice(var_names + [str(random.randint(0, 1000))])
 
     op = random.choice(["+", "-", "*", "DIV"])
