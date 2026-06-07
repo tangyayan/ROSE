@@ -446,10 +446,10 @@ public class Parser {
             currentType = errorType;
         }
 
-        // 构建左值代码字符串（含 selector）
-        StringBuilder lhsCode = new StringBuilder(name);
-        mySymbol.Selector sel = selectorWithCode(currentType, lhsCode);
-        currentType = applySelector(currentType, sel, line);
+        mySymbol.Selector sel = selectorWithCode(currentType);
+        mySymbol.Expression lhsExpr = applySelector(name, currentType, sel, line, isLValue);
+        currentType = lhsExpr.getType();
+        String lhsCode = lhsExpr.getCode();
 
         if (!isLValue) {
             ErrorReport.reportError(ErrorType.SemanticException, line,
@@ -846,59 +846,17 @@ public class Parser {
             return new mySymbol.Expression(id, errorType);
         }
 
-        StringBuilder code = new StringBuilder(id);
-        while (lookahead.getToken() == Token.DOT
-                || lookahead.getToken() == Token.LBRACK) {
-            if (lookahead.getToken() == Token.DOT) {
-                lookahead = get_token();
-                String field = lookahead.getValue();
-                int    fline = lookahead.getLine();
-                lookahead = get_token();
-                mySymbol.Type resolved = currentType instanceof mySymbol.AliasType
-                        ? ((mySymbol.AliasType) currentType).getTargetType() : currentType;
-                if (!(resolved instanceof mySymbol.RecordType)) {
-                    ErrorReport.reportError(ErrorType.SemanticException, fline,
-                            "Field selector applied to non-record type");
-                    currentType = errorType; break;
-                }
-                mySymbol.Parameter f = ((mySymbol.RecordType) resolved).getField(field);
-                if (f == null) {
-                    ErrorReport.reportError(ErrorType.SemanticException, fline,
-                            "Undefined field \"" + field + "\" in record type");
-                    currentType = errorType; break;
-                }
-                code.append(".").append(field);
-                currentType = f.getType();
-            } else {                                  // LBRACK
-                lookahead = get_token();
-                mySymbol.Expression idx = expression();
-                if (!idx.getType().getTargetType().equals(intType))
-                    ErrorReport.reportError(ErrorType.TypeMismatchedException, lookahead.getLine(),
-                            "Array index must be of type INTEGER");
-                if (lookahead.getToken() == Token.RBRACK) lookahead = get_token();
-                mySymbol.Type resolved = currentType instanceof mySymbol.AliasType
-                        ? ((mySymbol.AliasType) currentType).getTargetType() : currentType;
-                if (!(resolved instanceof mySymbol.ArrayType)) {
-                    ErrorReport.reportError(ErrorType.SemanticException, lookahead.getLine(),
-                            "Index selector applied to non-array type");
-                    currentType = errorType; break;
-                }
-                currentType = ((mySymbol.ArrayType) resolved).getElementType();
-                code.append("[").append(idx.getCode()).append("]");
-            }
-        }
-        return new mySymbol.Expression(code.toString(), currentType, isLValue);
+        mySymbol.Selector sel = selectorWithCode(currentType);
+        return applySelector(id, currentType, sel, line, isLValue);
     }
 
     /**
      * 解析选择器链并构建对应的代码字符串，已经预读了一个 token
      * @param baseType 选择器链的基类型（即标识符的类型，继承属性）
-     * @param lhsCode 选择器链对应的代码字符串构建器，初始内容为标识符名称，继承属性
      * @return 解析得到的选择器对象，包含选择器链的信息
      * @throws Exception
      */
-    private mySymbol.Selector selectorWithCode(mySymbol.Type baseType,
-                                               StringBuilder lhsCode) throws Exception {
+    private mySymbol.Selector selectorWithCode(mySymbol.Type baseType) throws Exception {
         mySymbol.Selector sel = new mySymbol.Selector();
         while (lookahead.getToken() == Token.DOT
                 || lookahead.getToken() == Token.LBRACK) {
@@ -906,13 +864,15 @@ public class Parser {
                 lookahead = get_token();
                 String field = lookahead.getValue();
                 sel.addFieldSelector(field);
-                lhsCode.append(".").append(field);
                 lookahead = get_token();
             } else {
                 lookahead = get_token();
                 mySymbol.Expression idx = expression();
+                if(!idx.getType().getTargetType().equals(intType)) {
+                    ErrorReport.reportError(ErrorType.TypeMismatchedException, lookahead.getLine(),
+                            "Array index must be of type INTEGER");
+                }
                 sel.addIndexSelector(idx.getCode());
-                lhsCode.append("[").append(idx.getCode()).append("]");
                 if (lookahead.getToken() == Token.RBRACK) lookahead = get_token();
             }
         }
@@ -921,14 +881,16 @@ public class Parser {
 
     /**
      * 根据选择器链解析出最终的类型，已经预读了一个 token
+     * @param idName 标识符名称，用于错误报告和代码生成
      * @param t 选择器链的基类型（即标识符的类型）
      * @param sel 选择器链对象，包含选择器链的信息
      * @param line 选择器链所在行号，用于错误报告
-     * @return
+     * @param isLValue 标识符是否为左值（变量），用于错误报告和代码生成
+     * @return 
      */
-    private mySymbol.Type applySelector(mySymbol.Type t, mySymbol.Selector sel, int line) {
-        if (sel == null || sel.isEmpty()) return t;
-        mySymbol.Type current = t;
+    private mySymbol.Expression applySelector(String idName, mySymbol.Type t, mySymbol.Selector sel, int line, boolean isLValue) {
+        if (sel == null || sel.isEmpty()) return new mySymbol.Expression(idName, t, isLValue);
+        mySymbol.Type current = t; String code = idName;
         for (mySymbol.Selector.SelectorNode node : sel.getNodes()) {
             if (current instanceof mySymbol.AliasType)
                 current = ((mySymbol.AliasType) current).getTargetType();
@@ -936,25 +898,26 @@ public class Parser {
                 if (!(current instanceof mySymbol.RecordType)) {
                     ErrorReport.reportError(ErrorType.SemanticException, line,
                             "Field selector applied to non-record type");
-                    return errorType;
+                    current = errorType; break;
                 }
                 mySymbol.Parameter f = ((mySymbol.RecordType) current).getField(node.getFieldName());
                 if (f == null) {
                     ErrorReport.reportError(ErrorType.SemanticException, line,
                             "Undefined field \"" + node.getFieldName() + "\"");
-                    return errorType;
+                    current = errorType; break;
                 }
                 current = f.getType();
             } else {
                 if (!(current instanceof mySymbol.ArrayType)) {
                     ErrorReport.reportError(ErrorType.SemanticException, line,
                             "Index selector applied to non-array type");
-                    return errorType;
+                    current = errorType; break;
                 }
                 current = ((mySymbol.ArrayType) current).getElementType();
             }
         }
-        return current;
+        code += sel.getCode();
+        return new mySymbol.Expression(code, current, isLValue);
     }
 
     /**
