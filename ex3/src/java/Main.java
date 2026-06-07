@@ -13,8 +13,11 @@ public class Main {
             );
 
         Parser p = new Parser(new OberonScanner(reader));
-
+        
+        long start = System.nanoTime();
         p.parse();
-        p.buildCallGraph(true);
+        p.buildCallGraph(false);
+        long end = System.nanoTime();
+        System.out.println("Parsing and call graph construction completed in " + (end - start) / 1e9 + " seconds.");
     }
 }
