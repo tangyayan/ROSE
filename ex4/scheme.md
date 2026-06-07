@@ -1,6 +1,8 @@
-
 需要改的 `const_decl_list`，消除左递归
-expression中有`expression_list ::= expression expression_list_tail` 消除左边相同
+expression中有 `expression_list ::= expression expression_list_tail` 消除左边相同
+
+
+使用while循环来用左递归
 
 ```cpp
 START ::= module

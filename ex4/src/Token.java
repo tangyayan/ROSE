@@ -4,7 +4,7 @@
 //----------------------------------------------------
 
 /** CUP generated class containing symbol constants. */
-public class sym {
+public class Token {
   /* terminals */
   public static final int CONST = 8;
   public static final int UMINUS = 35;
