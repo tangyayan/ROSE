@@ -1,4 +1,3 @@
-import mySymbol.*;
 import exceptions.ErrorReport;
 import exceptions.ErrorReport.ErrorType;
 import flowchart.*;
@@ -67,7 +66,7 @@ public class Parser {
      * @return 解析成功返回 true
      * @throws Exception
      */
-    public boolean module() throws Exception {
+    public boolean module(boolean isShow) throws Exception {
         lookahead = get_token();                  // MODULE
         lookahead = get_token();                  // 模块名
         String name1 = lookahead.getValue();
@@ -99,14 +98,7 @@ public class Parser {
         mySymbol.Env.exitEnv();
         lookahead = get_token();                  // DOT
 
-        // 括号匹配检查
-        // if (LeftParen < RightParen)
-        //     ErrorReport.reportError(ErrorType.MissingLeftParenthesisException, 0, "Unmatched ')'");
-        // else if (LeftParen > RightParen)
-        //     ErrorReport.reportError(ErrorType.MissingRightParenthesisException, 0, "Unmatched '('");
-
-        // 展示流程图
-        flowModule.show();
+        if(isShow) flowModule.show();
         return true;
     }
 
@@ -209,13 +201,20 @@ public class Parser {
 
         mySymbol.FormalParameters fp;
         if (lookahead.getToken() == Token.LPAREN) {
-            fp = formal_parameters();
+            fp = formal_parameters(true); // 跳过 LPAREN
         } else if(lookahead.getToken() == Token.SEMI) {
             fp = new mySymbol.FormalParameters();
         } else {
             ErrorReport.reportError(ErrorType.MissingLeftParenthesisException, lookahead.getLine(),
                     "Expected '(' in parameter list");
-            fp = new mySymbol.FormalParameters();
+            if(lookahead.getToken() == Token.IDENTIFIER || lookahead.getToken() == Token.VAR) { // fp_section_list 的起始 token
+                fp = formal_parameters(false);
+            }
+            else if(lookahead.getToken() == Token.RPAREN) { // 直接缺失参数列表
+                lookahead = get_token(); // 跳过 RPAREN
+                fp = new mySymbol.FormalParameters();
+            }
+            else  fp = new mySymbol.FormalParameters();
         }
 
         mySymbol.Env.addSymbol_s(name, fp);
@@ -264,11 +263,12 @@ public class Parser {
 
     /**
      * 形式参数列表，已经预读了 LPAREN token
+     * @param passLparen 是否跳过 LPAREN token（根据调用情况决定）  
      * @return 解析得到的形式参数列表对象，出错时返回空列表
      * @throws Exception
      */
-    public mySymbol.FormalParameters formal_parameters() throws Exception {
-        lookahead = get_token();                  // 跳过 LPAREN
+    public mySymbol.FormalParameters formal_parameters(boolean passLparen) throws Exception {
+        if( passLparen) lookahead = get_token(); // 根据调用情况决定是否跳过 LPAREN
         mySymbol.FormalParameters fp = new mySymbol.FormalParameters();
         if (lookahead.getToken() != Token.RPAREN) {
             for (mySymbol.FpSection sec : fp_section_list()) fp.addFpSection(sec);
@@ -478,7 +478,7 @@ public class Parser {
     }
 
     /**
-     * 过程调用语句，已经预读了标识符 token
+     * 过程调用语句，已经预读了标识符和左括号
      * @param name 过程名
      * @param line 过程名所在行号，用于错误报告
      * @throws Exception
@@ -495,7 +495,12 @@ public class Parser {
                 String errorString = fp.checkTypesWithMessage(ap);
                 if (errorString != null) {
                     if (errorString.split("\\s+")[0].equals("expected"))
-                        ErrorReport.reportError(ErrorType.ParameterMismatchedException, line, errorString);
+                    {
+                        if(name.equals("READ") || name.equals("WRITE") || name.equals("WRITELN"))
+                            ErrorReport.reportError(ErrorType.MissingOperatorException, line, errorString);
+                        else
+                            ErrorReport.reportError(ErrorType.ParameterMismatchedException, line, errorString);
+                    }
                     else
                         ErrorReport.reportError(ErrorType.TypeMismatchedException, line, errorString);
                 }
@@ -528,18 +533,23 @@ public class Parser {
      * @throws Exception
      */
     private List<mySymbol.Expression> actual_parameters_opt(String name, int line) throws Exception {
-        if (lookahead.getToken() == Token.LPAREN) {
-            lookahead = get_token();
-            List<mySymbol.Expression> el = expression_list_opt();
-            if (lookahead.getToken() == Token.RPAREN) {
-                lookahead = get_token();
-            } else {
-                ErrorReport.reportError(ErrorType.MissingRightParenthesisException,
-                        lookahead.getLine(), "in procedure call");
-            }
-            return el;
+        if(lookahead.getToken() == Token.SEMI || lookahead.getToken() == Token.END
+                || lookahead.getToken() == Token.ELSIF || lookahead.getToken() == Token.ELSE) {
+            return new ArrayList<>();
         }
-        return new ArrayList<>();
+        if(lookahead.getToken() != Token.LPAREN) {
+            ErrorReport.reportError(ErrorType.MissingLeftParenthesisException, lookahead.getLine(),
+                    "Expected '(' before actual parameters in call to \"" + name + "\"");
+        }
+        else lookahead = get_token(); // 跳过 LPAREN
+        List<mySymbol.Expression> el = expression_list_opt();
+        if (lookahead.getToken() == Token.RPAREN) {
+            lookahead = get_token();
+        } else {
+            ErrorReport.reportError(ErrorType.MissingRightParenthesisException,
+                    lookahead.getLine(), "in procedure call");
+        }
+        return el;
     }
 
     private List<mySymbol.Expression> expression_list_opt() throws Exception {
@@ -640,11 +650,10 @@ public class Parser {
             int line = lookahead.getLine();
             String op = tokenToOp(t);
             lookahead = get_token();
-            if (lookahead.getToken() == Token.END  || lookahead.getToken() == Token.THEN
-                    || lookahead.getToken() == Token.DO || lookahead.getToken() == Token.SEMI
-                    || lookahead.getToken() == Token.RPAREN) {
-                ErrorReport.reportError(ErrorType.MissingOperandException, line,
-                        "Missing right operand for '" + op + "'");
+            if (lookahead.getToken() == Token.END  || lookahead.getToken() == Token.THEN || lookahead.getToken() == Token.OF
+                    || lookahead.getToken() == Token.DO || lookahead.getToken() == Token.SEMI || lookahead.getToken() == Token.RBRACK
+                    || lookahead.getToken() == Token.RPAREN || lookahead.getToken() == Token.COMMA || lookahead.getToken() == Token.ELSE || lookahead.getToken() == Token.ELSIF) {
+                ErrorReport.reportError(ErrorType.MissingOperandException, line, "Missing right operand for '" + op + "'");
                 return new mySymbol.Expression("ERROR", errorType);
             }
             mySymbol.Expression right = simple_expression();
@@ -653,10 +662,14 @@ public class Parser {
                 return new mySymbol.Expression(
                         left.getCode() + " " + op + " " + right.getCode(), boolType);
             } else {
-                ErrorReport.reportError(ErrorType.TypeMismatchedException, line,
-                        "Type mismatch in '" + op + "': expected INTEGER");
+                ErrorReport.reportError(ErrorType.TypeMismatchedException, line, "Type mismatch in '" + op + "': expected INTEGER");
                 return new mySymbol.Expression("ERROR", errorType);
             }
+        }
+        else if(t == Token.IDENTIFIER || t == Token.INTEGER || t == Token.LPAREN || t == Token.MINUS || t == Token.NOT || t == Token.PLUS) {
+            ErrorReport.reportError(ErrorType.MissingOperatorException, lookahead.getLine(),
+                    "Missing operator between expressions");
+            simple_expression(); 
         }
         return left;
     }
@@ -684,10 +697,14 @@ public class Parser {
         }
 
         mySymbol.Expression left = term();
-        while (lookahead.getToken() == Token.PLUS
-                || lookahead.getToken() == Token.MINUS
-                || lookahead.getToken() == Token.OR) {
-            int t = lookahead.getToken();
+        int t = lookahead.getToken();
+        while (t == Token.PLUS || t == Token.MINUS || t == Token.OR
+                || t == Token.IDENTIFIER || t == Token.INTEGER || t == Token.LPAREN || t == Token.NOT) {
+            if(t==Token.IDENTIFIER || t==Token.INTEGER || t==Token.LPAREN || t==Token.NOT) {
+                ErrorReport.reportError(ErrorType.MissingOperatorException, lookahead.getLine(),
+                        "Missing operator in " + left.getCode());
+                term(); t = lookahead.getToken(); continue;
+            }
             int line = lookahead.getLine();
             String op = tokenToOp(t);
             lookahead = get_token();
@@ -713,6 +730,7 @@ public class Parser {
                     left = new mySymbol.Expression("ERROR", errorType);
                 }
             }
+            t = lookahead.getToken();
         }
         return left;
     }
@@ -972,8 +990,7 @@ public class Parser {
 
     public Symbols get_token() throws Exception {
         Symbols tok = scan.yylex();
-        if (tok.getToken() == Token.LPAREN) LeftParen++;
-        if (tok.getToken() == Token.RPAREN) RightParen++;
         return tok;
     }
+
 }

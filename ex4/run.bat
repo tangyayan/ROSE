@@ -6,7 +6,7 @@ echo.
 
 java ^
 -cp bin;lib\flowchart.jar;lib\jgraph.jar ^
-Main testcases\gcd.obr
+Main testcases\sample.obr
 
 echo.
 echo ========== Test Complete ==========

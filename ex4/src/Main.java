@@ -13,7 +13,10 @@ public class Main {
             );
 
         Parser p = new Parser(new OberonScanner(reader));
-
-        p.module();
+        
+        long start = System.nanoTime();
+        p.module(true);
+        long end = System.nanoTime();
+        System.out.println("Parsing completed in " + (end - start) / 1e9 + " seconds.");
     }
 }

@@ -1,0 +1,94 @@
+START ::= module
+module ::= MODULE IDENTIFIER SEMI declarations begin_opt END IDENTIFIER DOT
+
+begin_opt ::= BEGIN statement_sequence | /* empty */
+
+declarations ::= const_part type_part var_part procedure_part
+
+const_part ::= CONST const_decl_list | /* empty */
+const_decl_list ::= const_decl const_decl_list | /* empty */
+const_decl ::= IDENTIFIER EQ expression SEMI
+
+type_part ::= TYPE type_decl_list | /* empty */
+type_decl_list ::= type_decl type_decl_list | /* empty */
+type_decl ::= IDENTIFIER EQ type SEMI
+
+var_part ::= VAR var_decl_list | /* empty */
+var_decl_list ::= var_decl var_decl_list | /* empty */
+var_decl ::= identifier_list COLON type SEMI
+
+procedure_part ::= procedure_declaration SEMI procedure_part | /* empty */
+
+procedure_declaration ::= procedure_heading SEMI procedure_body
+
+procedure_body ::= declarations begin_opt END IDENTIFIER
+
+procedure_heading ::= PROCEDURE IDENTIFIER formal_parameters_opt
+
+formal_parameters_opt ::= formal_parameters | /* empty */
+formal_parameters ::= LPAREN fp_section_list_opt RPAREN
+fp_section_list_opt ::= fp_section_list | /* empty */
+fp_section_list ::= fp_section fp_section_list_tail
+fp_section_list_tail ::= SEMI fp_section fp_section_list_tail | /* empty */
+fp_section ::= VAR identifier_list COLON type | identifier_list COLON type
+
+type ::= IDENTIFIER | array_type | record_type
+
+record_type ::= RECORD field_list field_list_tail END
+field_list_tail ::= SEMI field_list field_list_tail | /* empty */
+field_list ::= identifier_list COLON type | /* empty */
+
+array_type ::= ARRAY expression OF type
+
+identifier_list ::= IDENTIFIER identifier_list_tail
+identifier_list_tail ::= COMMA IDENTIFIER identifier_list_tail | /* empty */
+
+statement_sequence ::= statement statement_sequence_tail
+statement_sequence_tail ::= SEMI statement statement_sequence_tail | /* empty */
+
+statement ::= assignment | procedure_call | if_statement | while_statement | /* empty */
+
+while_statement ::= WHILE expression DO statement_sequence END
+
+if_statement ::= IF expression THEN statement_sequence elsif_list else_opt END
+
+elsif_list ::= elsif_list ELSIF expression THEN statement_sequence | /* empty */
+
+else_opt ::= ELSE statement_sequence | /* empty */
+
+procedure_call ::= IDENTIFIER actual_parameters_opt
+
+actual_parameters_opt ::= actual_parameters | /* empty */
+
+actual_parameters ::= LPAREN expression_list_opt RPAREN
+
+expression_list_opt ::= expression_list | /* empty */
+
+expression_list ::= expression expression_list_tail
+expression_list_tail ::= COMMA expression expression_list_tail | /* empty */
+
+assignment ::= IDENTIFIER selector ASSIGN expression
+
+expression ::= simple_expression expression_tail
+expression_tail ::= relation_op simple_expression | /* empty */
+
+relation_op ::= EQ | NE | LT | LE | GT | GE
+
+simple_expression ::= sign_opt term term_add_list
+
+sign_opt ::= PLUS | MINUS | /* empty */
+
+term_add_list ::= add_op term term_add_list | /* empty */
+
+add_op ::= PLUS | MINUS | OR
+
+term ::= factor factor_mul_list 
+
+factor_mul_list ::= mul_op factor factor_mul_list | /* empty */
+
+mul_op ::= TIMES | DIV | MOD | AMP
+
+factor ::= IDENTIFIER selector | INTEGER | LPAREN expression RPAREN | NOT factor
+
+selector ::= DOT IDENTIFIER selector | LBRACKET expression RBRACKET selector | /* empty */
+
